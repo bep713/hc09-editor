@@ -47,7 +47,7 @@ module.exports = {
     },
     resolve: {
         alias: {
-            vue: 'vue/dist/vue.js'
+            vue: '@vue/runtime-dom'
         },
         extensions: ['.js', '.vue', '.json', '.css', '.node']
     }

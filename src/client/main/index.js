@@ -1,9 +1,5 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import App from './App'
-// import router from './router'
-// import store from './store'
+import router from './router'
 
-new Vue({
-  components: { App },
-  template: '<App/>'
-}).$mount('#app')
+createApp(App).use(router).mount('#app')
