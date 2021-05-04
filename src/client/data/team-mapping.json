@@ -1,0 +1,541 @@
+[{
+    "cityName": "Chicago",
+    "nickName": "Bears",
+    "hc": {
+        "SGID": 0,
+        "TGID": 1,
+        "TEZ1": 0
+    },
+    "madden": {
+        "recordIndex": 1,
+        "teamIndex": 0
+    },
+    "logo": {
+        "3d": "bears.webp"
+    }
+}, {
+    "cityName": "Cincinnati",
+    "nickName": "Bengals",
+    "hc": {
+        "SGID": 1,
+        "TGID": 2,
+        "TEZ1": 1
+    },
+    "madden": {
+        "recordIndex": 2,
+        "teamIndex": 1
+    },
+    "logo": {
+        "3d": "bengals.webp"
+    }
+}, {
+    "cityName": "Buffalo",
+    "nickName": "Bills",
+    "hc": {
+        "SGID": 2,
+        "TGID": 3,
+        "TEZ1": 2
+    },
+    "madden": {
+        "recordIndex": 3,
+        "teamIndex": 2
+    },
+    "logo": {
+        "3d": "bills.webp"
+    }
+}, {
+    "cityName": "Denver",
+    "nickName": "Broncos",
+    "hc": {
+        "SGID": 3,
+        "TGID": 4,
+        "TEZ1": 3
+    },
+    "madden": {
+        "recordIndex": 4,
+        "teamIndex": 3
+    },
+    "logo": {
+        "3d": "broncos.webp"
+    }
+}, {
+    "cityName": "Cleveland",
+    "nickName": "Browns",
+    "hc": {
+        "SGID": 4,
+        "TGID": 5,
+        "TEZ1": 4
+    },
+    "madden": {
+        "recordIndex": 5,
+        "teamIndex": 4
+    },
+    "logo": {
+        "3d": "browns.webp"
+    }
+}, {
+    "cityName": "Tampa Bay",
+    "nickName": "Buccaneers",
+    "hc": {
+        "SGID": 5,
+        "TGID": 6,
+        "TEZ1": 5
+    },
+    "madden": {
+        "recordIndex": 6,
+        "teamIndex": 5
+    },
+    "logo": {
+        "3d": "buccaneers.webp"
+    }
+}, {
+    "cityName": "Arizona",
+    "nickName": "Cardinals",
+    "hc": {
+        "SGID": 6,
+        "TGID": 7,
+        "TEZ1": 6
+    },
+    "madden": {
+        "recordIndex": 7,
+        "teamIndex": 6
+    },
+    "logo": {
+        "3d": "cardinals.webp"
+    }
+}, {
+    "cityName": "San Diego",
+    "nickName": "Chargers",
+    "hc": {
+        "SGID": 7,
+        "TGID": 8,
+        "TEZ1": 7
+    },
+    "madden": {
+        "recordIndex": 40,
+        "teamIndex": 7
+    },
+    "logo": {
+        "3d": "chargers.webp"
+    }
+}, {
+    "cityName": "Kansas City",
+    "nickName": "Chiefs",
+    "hc": {
+        "SGID": 8,
+        "TGID": 9,
+        "TEZ1": 8
+    },
+    "madden": {
+        "recordIndex": 41,
+        "teamIndex": 8
+    },
+    "logo": {
+        "3d": "chiefs.webp"
+    }
+}, {
+    "cityName": "Indianapolis",
+    "nickName": "Colts",
+    "hc": {
+        "SGID": 9,
+        "TGID": 10,
+        "TEZ1": 9
+    },
+    "madden": {
+        "recordIndex": 42,
+        "teamIndex": 9
+    },
+    "logo": {
+        "3d": "colts.webp"
+    }
+}, {
+    "cityName": "Dallas",
+    "nickName": "Cowboys",
+    "hc": {
+        "SGID": 10,
+        "TGID": 11,
+        "TEZ1": 10
+    },
+    "madden": {
+        "recordIndex": 43,
+        "teamIndex": 10
+    },
+    "logo": {
+        "3d": "cowboys.webp"
+    }
+}, {
+    "cityName": "Miami",
+    "nickName": "Dolphins",
+    "hc": {
+        "SGID": 11,
+        "TGID": 12,
+        "TEZ1": 11
+    },
+    "madden": {
+        "recordIndex": 44,
+        "teamIndex": 11
+    },
+    "logo": {
+        "3d": "dolphins.webp"
+    }
+}, {
+    "cityName": "Philadelphia",
+    "nickName": "Eagles",
+    "hc": {
+        "SGID": 12,
+        "TGID": 13,
+        "TEZ1": 12
+    },
+    "madden": {
+        "recordIndex": 45,
+        "teamIndex": 12
+    },
+    "logo": {
+        "3d": "eagles.webp"
+    }
+}, {
+    "cityName": "Atlanta",
+    "nickName": "Falcons",
+    "hc": {
+        "SGID": 13,
+        "TGID": 14,
+        "TEZ1": 13
+    },
+    "madden": {
+        "recordIndex": 46,
+        "teamIndex": 13
+    },
+    "logo": {
+        "3d": "falcons.webp"
+    }
+}, {
+    "cityName": "San Francisco",
+    "nickName": "49ers",
+    "hc": {
+        "SGID": 14,
+        "TGID": 15,
+        "TEZ1": 14
+    },
+    "madden": {
+        "recordIndex": 0,
+        "teamIndex": 14
+    },
+    "logo": {
+        "3d": "49ers.webp"
+    }
+}, {
+    "cityName": "New York",
+    "nickName": "Giants",
+    "hc": {
+        "SGID": 15,
+        "TGID": 16,
+        "TEZ1": 15
+    },
+    "madden": {
+        "recordIndex": 48,
+        "teamIndex": 15
+    },
+    "logo": {
+        "3d": "giants.webp"
+    }
+}, {
+    "cityName": "Jacksonville",
+    "nickName": "Jaguars",
+    "hc": {
+        "SGID": 16,
+        "TGID": 17,
+        "TEZ1": 16
+    },
+    "madden": {
+        "recordIndex": 50,
+        "teamIndex": 16
+    },
+    "logo": {
+        "3d": "jaguars.webp"
+    }
+}, {
+    "cityName": "New York",
+    "nickName": "Jets",
+    "hc": {
+        "SGID": 17,
+        "TGID": 18,
+        "TEZ1": 17
+    },
+    "madden": {
+        "recordIndex": 51,
+        "teamIndex": 17
+    },
+    "logo": {
+        "3d": "jets.webp"
+    }
+}, {
+    "cityName": "Detroit",
+    "nickName": "Lions",
+    "hc": {
+        "SGID": 18,
+        "TGID": 19,
+        "TEZ1": 18
+    },
+    "madden": {
+        "recordIndex": 52,
+        "teamIndex": 18
+    },
+    "logo": {
+        "3d": "lions.webp"
+    }
+}, {
+    "cityName": "Green Bay",
+    "nickName": "Packers",
+    "hc": {
+        "SGID": 19,
+        "TGID": 20,
+        "TEZ1": 19
+    },
+    "madden": {
+        "recordIndex": 54,
+        "teamIndex": 19
+    },
+    "logo": {
+        "3d": "packers.webp"
+    }
+}, {
+    "cityName": "Carolina",
+    "nickName": "Panthers",
+    "hc": {
+        "SGID": 20,
+        "TGID": 21,
+        "TEZ1": 20
+    },
+    "madden": {
+        "recordIndex": 55,
+        "teamIndex": 20
+    },
+    "logo": {
+        "3d": "panthers.webp"
+    }
+}, {
+    "cityName": "New England",
+    "nickName": "Patriots",
+    "hc": {
+        "SGID": 21,
+        "TGID": 22,
+        "TEZ1": 21
+    },
+    "madden": {
+        "recordIndex": 56,
+        "teamIndex": 21
+    },
+    "logo": {
+        "3d": "patriots.webp"
+    }
+}, {
+    "cityName": "Oakland",
+    "nickName": "Raiders",
+    "hc": {
+        "SGID": 22,
+        "TGID": 23,
+        "TEZ1": 22
+    },
+    "madden": {
+        "recordIndex": 57,
+        "teamIndex": 22
+    },
+    "logo": {
+        "3d": "raiders.webp"
+    }
+}, {
+    "cityName": "St. Louis",
+    "nickName": "Rams",
+    "hc": {
+        "SGID": 23,
+        "TGID": 24,
+        "TEZ1": 23
+    },
+    "madden": {
+        "recordIndex": 58,
+        "teamIndex": 23
+    },
+    "logo": {
+        "3d": "rams.webp"
+    }
+}, {
+    "cityName": "Baltimore",
+    "nickName": "Ravens",
+    "hc": {
+        "SGID": 24,
+        "TGID": 25,
+        "TEZ1": 24
+    },
+    "madden": {
+        "recordIndex": 59,
+        "teamIndex": 24
+    },
+    "logo": {
+        "3d": "ravens.webp"
+    }
+}, {
+    "cityName": "Washington",
+    "nickName": "Redskins",
+    "hc": {
+        "SGID": 25,
+        "TGID": 26,
+        "TEZ1": 25
+    },
+    "madden": {
+        "recordIndex": 60,
+        "teamIndex": 25
+    },
+    "logo": {
+        "3d": "redskins.webp"
+    }
+}, {
+    "cityName": "New Orleans",
+    "nickName": "Saints",
+    "hc": {
+        "SGID": 26,
+        "TGID": 27,
+        "TEZ1": 26
+    },
+    "madden": {
+        "recordIndex": 61,
+        "teamIndex": 26
+    },
+    "logo": {
+        "3d": "saints.webp"
+    }
+}, {
+    "cityName": "Seattle",
+    "nickName": "Seahawks",
+    "hc": {
+        "SGID": 27,
+        "TGID": 28,
+        "TEZ1": 27
+    },
+    "madden": {
+        "recordIndex": 62,
+        "teamIndex": 27
+    },
+    "logo": {
+        "3d": "seahawks.webp"
+    }
+}, {
+    "cityName": "Pittsburgh",
+    "nickName": "Steelers",
+    "hc": {
+        "SGID": 28,
+        "TGID": 29,
+        "TEZ1": 28
+    },
+    "madden": {
+        "recordIndex": 63,
+        "teamIndex": 28
+    },
+    "logo": {
+        "3d": "steelers.webp"
+    }
+}, {
+    "cityName": "Tennessee",
+    "nickName": "Titans",
+    "hc": {
+        "SGID": 30,
+        "TGID": 30,
+        "TEZ1": 29
+    },
+    "madden": {
+        "recordIndex": 65,
+        "teamIndex": 29
+    },
+    "logo": {
+        "3d": "titans.webp"
+    }
+}, {
+    "cityName": "Minnesota",
+    "nickName": "Vikings",
+    "hc": {
+        "SGID": 31,
+        "TGID": 31,
+        "TEZ1": 30
+    },
+    "madden": {
+        "recordIndex": 66,
+        "teamIndex": 30
+    },
+    "logo": {
+        "3d": "vikings.webp"
+    }
+}, {
+    "cityName": "Houston",
+    "nickName": "Texans",
+    "hc": {
+        "SGID": 29,
+        "TGID": 32,
+        "TEZ1": 31
+    },
+    "madden": {
+        "recordIndex": 64,
+        "teamIndex": 31
+    },
+    "logo": {
+        "3d": "texans.webp"
+    }
+}, {
+    "cityName": "HOF Unlocked",
+    "nickName": "HOF Unlocked",
+    "hc": {
+        "SGID": 127,
+        "TGID": 1008,
+        "TEZ1": 86
+    },
+    "madden": {
+        "recordIndex": 53,
+        "teamIndex": 32
+    },
+    "logo": {
+        "3d": ""
+    }
+}, {
+    "cityName": "Free Agents",
+    "nickName": "Free Agents",
+    "hc": {
+        "SGID": 127,
+        "TGID": 1009,
+        "TEZ1": 86
+    },
+    "madden": {
+        "recordIndex": 47,
+        "teamIndex": 32
+    },
+    "logo": {
+        "3d": ""
+    }
+}, {
+    "cityName": "Draft",
+    "nickName": "Draft",
+    "hc": {
+        "SGID": 127,
+        "TGID": 1015,
+        "TEZ1": 86
+    },
+    "madden": {
+        "recordIndex": -1,
+        "teamIndex": -1
+    },
+    "logo": {
+        "3d": ""
+    }
+}, {
+    "cityName": "Hall Of Fame",
+    "nickName": "Hall Of Fame",
+    "hc": {
+        "SGID": 127,
+        "TGID": 1021,
+        "TEZ1": 86
+    },
+    "madden": {
+        "recordIndex": 49,
+        "teamIndex": 32
+    },
+    "logo": {
+        "3d": ""
+    }
+}]

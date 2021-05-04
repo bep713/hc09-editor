@@ -15,6 +15,13 @@ module.exports = {
     module: {
         rules: [
             {
+                test: /\.js$/,
+                loader: 'babel-loader',
+                options: {
+                    rootMode: "upward"
+                }
+            },
+            {
                 test: /\.vue$/,
                 use: {
                     loader: 'vue-loader',
@@ -42,7 +49,15 @@ module.exports = {
             {
                 test: /\.html$/,
                 use: 'vue-html-loader'
-            }
+            },
+            {
+                test: /\.(png|svg|jpg|jpeg|gif|webp)$/i,
+                type: 'asset/resource'
+            },
+            {
+                test: /\.(woff|woff2|eot|ttf|otf)$/i,
+                type: 'asset/resource',
+            },
         ]
     },
     resolve: {

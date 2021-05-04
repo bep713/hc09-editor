@@ -2,7 +2,7 @@
   "name": "hc09-editor",
   "version": "1.0.0",
   "description": "",
-  "main": "src/server/index.js",
+  "main": "src/index.js",
   "scripts": {
     "build": "webpack -c .\\webpack\\webpack.config.js",
     "watch": "webpack -c .\\webpack\\webpack.config.js --watch",
@@ -11,7 +11,12 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@babel/core": "^7.14.0",
+    "@babel/preset-env": "^7.14.0",
+    "@vue/compiler-sfc": "^3.0.11",
+    "babel-loader": "^8.2.2",
     "chokidar": "^3.5.1",
+    "copy-node-modules": "^1.1.1",
     "css-loader": "^5.2.4",
     "deskgap": "^0.2.0",
     "gulp": "^4.0.2",
@@ -25,8 +30,9 @@
     "webpack-dev-server": "^3.11.2"
   },
   "dependencies": {
-    "@vue/compiler-sfc": "^3.0.11",
     "madden-file-tools": "^2.4.2",
+    "primeicons": "^4.1.0",
+    "primevue": "^3.3.5",
     "vue": "^3.0.11",
     "vue-router": "^4.0.6",
     "winston": "^3.3.3"
