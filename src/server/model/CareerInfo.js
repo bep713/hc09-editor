@@ -1,12 +1,14 @@
 class CareerInfo {
     constructor(filePath) {
         this._filePath = filePath;
+        this._teamId = null;
+        this._teamRgb = null;
     };
 
     get filePath() {
         return this._filePath;
     };
-    
+
     set filePath(path) {
         this._filePath = path;
     };
@@ -15,16 +17,16 @@ class CareerInfo {
         return this._teamId;
     };
 
-
     set teamId(id) {
         this._teamId = id;
     };
 
-    toObject() {
-        return {
-            'filePath': this._filePath,
-            'teamId': this._teamId
-        };
+    set teamData(teamData) {
+        this._teamData = teamData;
+    };
+
+    get teamData() {
+        return this._teamData;
     };
 };
 
