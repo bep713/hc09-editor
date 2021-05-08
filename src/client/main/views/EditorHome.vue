@@ -1,6 +1,6 @@
 <template>
     <div class="editor-home-container" :style="{ 'background-image': `url(${currentTeamBackground})` }">
-        <h1>{{fileName}}</h1>
+        <HCMenuItem :text="fileName" :backgroundColor="currentTeamBackgroundColor" :clickable="false" :focused="true" />
 
         <ul class="menu-wrapper">
             <HCMenuItem text="Change Team" :backgroundColor="currentTeamBackgroundColor" @click="onChangeTeamClicked" />
@@ -154,33 +154,12 @@ export default {
 
 <style lang="scss">
 .editor-home-container {
-    padding: 20px;
+    padding: 40px;
     height: 100vh;
     width: 100vw;
     background-size: cover;
     background-color: #333;
     animation: background-fade-in 0.5s;
-}
-
-.p-card {
-    width: 18em;
-
-    div.p-card-content {
-        padding: 0;
-    }
-}
-
-.p-card-title {
-    text-align: center;
-}
-
-.p-card-header {
-    display: flex;
-    justify-content: center;
-
-    img {
-        width: 100px;
-    }
 }
 
 div.p-dialog {
@@ -199,7 +178,10 @@ div.p-dialog .p-dialog-header {
 
 .menu-wrapper {
     position: absolute;
-    bottom: 30px;
+    bottom: 50px;
+    left: 60px;
+    padding-left: 0;
+    margin: 0;
 }
 
 @keyframes background-fade-in {

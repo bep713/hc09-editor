@@ -1,6 +1,6 @@
 <template>
-    <li class="menu-item-box">
-        <div class="menu-item--left"></div>
+    <li :class="{ 'focused': focused, 'clickable': clickable, 'menu-item-box': true }">
+        <div class="menu-item--left" v-if="clickable"></div>
         <div class="menu-item--main-box-shadow"></div>
         <div class="menu-item" :style="{ '--bgColor': backgroundColor, '--topGradientColor': topGradientColor, 
             '--darkBackgroundColor': darkBackgroundColor, '--bottomGradientColor': bottomGradientColor,
@@ -25,7 +25,17 @@ export default {
     name: 'HCMenuItem',
     props: {
         text: String,
-        backgroundColor: String
+        backgroundColor: String,
+        clickable: {
+            type: Boolean,
+            required: false,
+            default: true
+        },
+        focused: {
+            type: Boolean,
+            required: false,
+            default: false
+        }
     },
     computed: {
         topGradientColor() {
@@ -92,7 +102,8 @@ $menu-item-width: 14em;
     transition: height 0.2s ease-in-out;
     position: relative;
 
-    &:hover {
+    &:hover,
+    &.focused {
         height: 2.625em;
         width: 21em;
 
@@ -127,6 +138,12 @@ $menu-item-width: 14em;
 
         .menu-item--border {
             background: linear-gradient(90deg, rgba(0, 0, 0, 0) 50%, var(--bgColor) 85%);
+        }
+    }
+
+    &.clickable {
+        .menu-item {
+            cursor: pointer;
         }
     }
 
@@ -169,7 +186,6 @@ $menu-item-width: 14em;
     color: #fff;
     display: flex;
     align-items: flex-end;
-    cursor: pointer;
     transition: all .2s ease-in-out;
     transform-origin: left 0 0;
     z-index: 1;
