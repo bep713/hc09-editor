@@ -4,8 +4,6 @@ An all purpose editor for NFL Head Coach 09.
 ## Features
 - Change Team: You can change the user controlled team in any career file.
 
----
-
 ## Download Instructions
 ### Prereqs
 1. Make sure 7-zip is installed on your computer
@@ -15,8 +13,6 @@ An all purpose editor for NFL Head Coach 09.
 1. Find the downloaded .7z file, right click and click 'Extract to HC09Editor/' or similar
 1. Open the extracted folder.
 1. Double click on HC09Editor.exe to open the app.
-
----
 
 ## Usage Instructions
 ### Changing User Controlled Teams
@@ -31,8 +27,6 @@ An all purpose editor for NFL Head Coach 09.
 *NOTE*: The loading screen and initial team background will still have the old controlled team. That is fine, the stadium background will change before your next game.
 
 You can be sure the change worked by looking at the top right to see your user controlled team's logo.
-
----
 
 ## Modifying/Building the Source Code
 ### Architecture
