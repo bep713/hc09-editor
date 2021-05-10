@@ -3,7 +3,10 @@
         <div class="background-container">
             <div class="home-component-container">
                 <HomeHeader :version="version"/>
-                <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
+                <div class="button-container">
+                    <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
+                    <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-cog" @click="onEditGameFilesClicked" />
+                </div>
             </div>
         </div>
     </div>
@@ -61,12 +64,16 @@ export default {
             this.buttonText = 'Loading Selected File';
 
             messageUI.send('open-file', path);
+        },
+
+        onEditGameFilesClicked: function () {
+            this.$router.push('/game-files/home');
         }
     }
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .home-container {
     height: 100vh;
     width: 100vw;
@@ -91,8 +98,16 @@ export default {
     flex-direction: column;
 }
 
-button {
+.button-container {
     align-self: center;
     margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+
+    button {
+        + button {
+            margin-top: 15px;
+        }
+    }
 }
 </style>
