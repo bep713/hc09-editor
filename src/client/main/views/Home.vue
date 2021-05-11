@@ -69,6 +69,10 @@ export default {
         onEditGameFilesClicked: function () {
             this.$router.push('/game-files/home');
         }
+    },
+    unmounted() {
+        messageUI.removeAllListeners('get-version');
+        messageUI.removeAllListeners('file-loaded');
     }
 }
 </script>

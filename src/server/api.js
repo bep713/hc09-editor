@@ -1,8 +1,9 @@
 const log = require('../util/logger');
 const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('./model/CareerInfo');
-const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
 const EventResponse = require('./model/EventResponse');
+const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
+const astEditorService = require('./ast-editor/ast-editor-service');
 
 let helper;
 
@@ -57,5 +58,29 @@ module.exports.initializeListeners = function (mainWindow) {
                 response.errorMessage = err;
                 mainWindow.webContents.send('save-career-info', response);
             });
+    });
+
+    ipcMain.on('open-root-folder', (_, path) => {
+        astEditorService.validateRootFolder(path)
+            .then(() => {
+                astEditorService.openRootFolder(path)
+                    .then((rootFiles) => {
+                        const response = new EventResponse(true);
+                        response._rootFiles = rootFiles;
+                        mainWindow.webContents.send('open-root-folder', response);
+                    })
+                    .catch((err) => {
+                        sendErrorResponse(err);
+                    })
+            })
+            .catch((err) => {
+                sendErrorResponse(err);                
+            });
+
+        function sendErrorResponse(err) {
+            const response = new EventResponse(false);
+            response.errorMessage = err;
+            mainWindow.webContents.send('open-root-folder', response);
+        };
     });
 };

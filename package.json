@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "madden-file-tools": "^2.4.2",
+    "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",
     "primevue": "^3.3.5",
     "vue": "^3.0.11",

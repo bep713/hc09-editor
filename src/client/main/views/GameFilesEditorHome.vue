@@ -5,7 +5,7 @@
             <Button label="Help" class="p-button-outlined" @click="onHelpClicked" />
         </div>
         <div class="file-viewer-wrapper">
-            <TreeTable :value="nodes">
+            <TreeTable :value="treeModel._rootFiles">
                 <template #empty>
                     <p>Select the HC09 root folder above.</p>
                 </template>
@@ -30,14 +30,18 @@
                 </p>
             </div>
         </Dialog>
+        <Toast position="bottom-right" />
     </div>
 </template>
 
 <script>
+import Toast from 'primevue/toast';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
 import TreeTable from 'primevue/treetable';
+
+import ASTEditorTree from '../classes/ASTEditorTree';
 
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
@@ -45,23 +49,41 @@ const messageUI = window.deskgap.messageUI;
 export default {
     name: 'GameFilesEditorHome',
     components: {
+        Toast,
         Button,
         Column,
         Dialog,
         TreeTable
     },
     created() {
-        
+        messageUI.on('open-root-folder', (_, res) => {
+            console.log(res);
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Invalid folder', 
+                    detail: 'The folder that you have selected is not a valid root HC09 folder. Please try again.', 
+                    life: 4000
+                });
+
+                this.treeModel.rootFiles = null;
+            }
+            else {
+                this.$toast.removeAllGroups();
+                this.treeModel.rootFiles = res._rootFiles;
+                console.log(this.treeModel.rootFiles);
+            }
+        });
     },
     computed: {
-        rootFolderSelected() {
-            return this.rootFolderPath !== null;
+        treeModelNodes() {
+            return this.treeModel.treeViewMapping;
         }
     },
     data() {
         return {
-            nodes: null,
             showHelp: false,
+            treeModel: new ASTEditorTree(),
             rootFolderPath: null,
         };
     },
@@ -74,16 +96,23 @@ export default {
                 }).resolve().value();
             }).then((result) => {
                 if (!result.cancelled && result.filePaths) {
-                    this.onFileSelectedInDialog(result.filePaths[0]);
+                    this.onFolderSelectedInDialog(result.filePaths[0]);
                 }
             }).catch((err) => {
                 console.log(err);
             })
         },
 
+        onFolderSelectedInDialog(path) {
+            messageUI.send('open-root-folder', path);
+        },
+
         onHelpClicked() {
             this.showHelp = true;
         }
+    },
+    unmounted() {
+        messageUI.removeAllListeners('open-file-path');
     }
 }
 </script>

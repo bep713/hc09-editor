@@ -148,6 +148,10 @@ export default {
             this.info._teamId = this.currentTeam.TGID;
             this.hasUnsavedChanges = true;
         }
+    },
+    unmounted() {
+        messageUI.removeAllListeners('get-career-info');
+        messageUI.removeAllListeners('save-career-info');
     }
 }
 </script>
