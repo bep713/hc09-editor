@@ -70,17 +70,36 @@ module.exports.initializeListeners = function (mainWindow) {
                         mainWindow.webContents.send('open-root-folder', response);
                     })
                     .catch((err) => {
-                        sendErrorResponse(err);
+                        sendErrorResponse(err, 'open-root-folder');
                     })
             })
             .catch((err) => {
-                sendErrorResponse(err);                
+                sendErrorResponse(err, 'open-root-folder');                
             });
-
-        function sendErrorResponse(err) {
-            const response = new EventResponse(false);
-            response.errorMessage = err;
-            mainWindow.webContents.send('open-root-folder', response);
-        };
     });
+
+    ipcMain.on('get-ast-child-nodes', (_, node) => {
+        astEditorService.readAST(node.data.absolutePath, true)
+            .then((astFile) => {
+                try {
+                    node.children = astEditorService.parseArchiveFileList(astFile, node);
+                    const response = new EventResponse(true);
+                    response._node = node;
+                    mainWindow.webContents.send('get-ast-child-nodes', response);
+                }
+                catch (err) {
+                    sendErrorResponse(err, 'get-ast-child-nodes');
+                }
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'get-ast-child-nodes');
+            })
+    });
+
+    function sendErrorResponse(err, event) {
+        log.error(err);
+        const response = new EventResponse(false);
+        response.errorMessage = err;
+        mainWindow.webContents.send(event, response);
+    };
 };
