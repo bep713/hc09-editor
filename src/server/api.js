@@ -82,6 +82,11 @@ module.exports.initializeListeners = function (mainWindow) {
         astEditorService.readAST(node.data.absolutePath, true)
             .then((astFile) => {
                 try {
+                    astEditorService.activeASTFiles[node.key] = {
+                        'absolutePath': node.data.absolutePath,
+                        'file': astFile
+                    };
+
                     node.children = astEditorService.parseArchiveFileList(astFile, node);
                     const response = new EventResponse(true);
                     response._node = node;
@@ -93,6 +98,16 @@ module.exports.initializeListeners = function (mainWindow) {
             })
             .catch((err) => {
                 sendErrorResponse(err, 'get-ast-child-nodes');
+            })
+    });
+
+    ipcMain.on('export-ast-node', (_, data) => {
+        astEditorService.exportNode(data.filePath, data.node)
+            .then(() => {
+                log.info('yay')
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'export-ast-node');
             })
     });
 

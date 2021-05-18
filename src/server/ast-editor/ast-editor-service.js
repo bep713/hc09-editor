@@ -7,6 +7,8 @@ const { pipeline, Transform, Readable } = require('stream');
 
 let astService = {};
 
+astService.activeASTFiles = {};
+
 astService.validateRootFolder = (rootPath) => {
     return new Promise((resolve, reject) => {
         fs.promises.access(rootPath)
@@ -243,6 +245,54 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
 
         return mappedFile;
     })
+};
+
+astService.exportNode = (exportPath, node) => {
+    return new Promise((resolve, reject) => {
+        const nodeHierarchy = node.key.split('_');
+        const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
+        const rootStream = fs.createReadStream(rootASTFile.absolutePath);
+        
+        resolve(astService.exportNodeFromStream(rootStream, nodeHierarchy.slice(1), exportPath));
+    });
+};
+
+astService.exportNodeFromStream = (stream, nodeHierarchy, exportPath) => {
+    return new Promise((resolve, reject) => {
+        const newParser = new ASTParser();
+
+        newParser.on('compressed-file', (astData) => {
+            if (astData.toc.index == nodeHierarchy[0]) {
+                if (nodeHierarchy.length > 1) {
+                    resolve(astService.exportNodeFromStream(astData.stream, nodeHierarchy.slice(1), exportPath));
+                }
+                else {
+                    pipeline(
+                        astData.stream,
+                        fs.createWriteStream(exportPath),
+                        (err) => {
+                            if (err) {
+                                reject(err);
+                            }
+                            else {
+                                resolve();
+                            }
+                        }
+                    )
+                }
+            }
+        });
+
+        pipeline(
+            stream,
+            newParser,
+            (err) => {
+                if (err) {
+                    reject(err);
+                }
+            }
+        );
+    });
 };
 
 module.exports = astService;

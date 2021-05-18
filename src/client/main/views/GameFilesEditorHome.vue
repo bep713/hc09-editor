@@ -9,39 +9,8 @@
             <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
                 @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"></Tree>
 
-            <div class="data-table-wrapper" v-if="tableBaseModel">
-                <div class="data-table-header">{{selectedNode.data.name}}</div>
-                <DataTable class="p-datatable-sm" stripedRows removableSort dataKey="key"
-                    :value="tableModel"  :scrollable="true" scrollHeight="flex"
-                    :paginator="true" :rows="20" :rowsPerPageOptions="[10,20,50]"
-                    v-model:filters="dataTableFilters" filterDisplay="row">
-                    <Column field="name" header="Name" :sortable="true" sortField="index">
-                        <template #filter="{filterModel,filterCallback}">
-                            <InputText type="text" v-model="filterModel.value" @input="filterCallback()" class="p-column-filter" 
-                                placeholder="Search by name" />
-                        </template>
-                    </Column>
-                    <Column field="size" header="Size" :sortable="true" sortField="sizeUnformatted" 
-                        filterField="sizeUnformatted" :filterMatchModeOptions="numericMatchModes">
-                        <template #filter="{filterModel,filterCallback}">
-                            <InputNumber v-model="filterModel.value" @input="filterCallback()" class="p-column-filter" 
-                                placeholder="Search by size" />
-                        </template>
-                    </Column>
-                    <Column field="type" header="Type" :sortable="true">
-                        <template #filter="{filterModel,filterCallback}">
-                            <InputText type="text" v-model="filterModel.value" @input="filterCallback()" class="p-column-filter" 
-                                placeholder="Search by type" />
-                        </template>
-                    </Column>
-                    <Column field="description" header="Description" :sortable="true">
-                        <template #filter="{filterModel,filterCallback}">
-                            <InputText type="text" v-model="filterModel.value" @input="filterCallback()" class="p-column-filter" 
-                                placeholder="Search by description" />
-                        </template>
-                    </Column>
-                </DataTable>
-            </div>
+            <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
+                :isLoading="isDataViewerLoading" @export-node="onExportNode" />
         </div>
         <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true">
             <div class="help-wrapper">
@@ -67,15 +36,26 @@
 import Tree from 'primevue/tree';
 import Toast from 'primevue/toast';
 import Button from 'primevue/button';
-import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
-import DataTable from 'primevue/datatable';
-import InputText from 'primevue/inputtext';
-import InputNumber from 'primevue/inputnumber';
-import { FilterMatchMode } from 'primevue/api';
+
+import GameFilesEditorDataTable from '../components/GameFilesEditorDataTable';
 
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
+
+const exportFileFilters = [
+    { name: 'APT', extensions: ['apt'] },
+    { name: 'AST', extensions: ['ast'] },
+    { name: 'DAT', extensions: ['dat', '?'] },
+    { name: 'DB', extensions: ['db'] },
+    { name: 'DDS', extensions: ['dds'] },
+    { name: 'EBO', extensions: ['ebo'] },
+    { name: 'P3R', extensions: ['p3r'] },
+    { name: 'PNG', extensions: ['png'] },
+    { name: 'RSF', extensions: ['rsf'] },
+    { name: 'SCHL', extensions: ['schl'] },
+    { name: 'XML', extensions: ['xml'] },
+];
 
 export default {
     name: 'GameFilesEditorHome',
@@ -83,11 +63,8 @@ export default {
         Tree,
         Toast,
         Button,
-        Column,
         Dialog,
-        DataTable,
-        InputText,
-        InputNumber
+        GameFilesEditorDataTable
     },
     created() {
         messageUI.on('open-root-folder', (_, res) => {
@@ -179,25 +156,10 @@ export default {
         return {
             astModel: [],
             treeModel: [],
-            frozenRows: [],
             showHelp: false,
             expandedRows: [],
             selectedKey: null,
             selectedNode: null,
-            dataTableFilters: {
-                'name': {value: null, matchMode: FilterMatchMode.CONTAINS},
-                'type': {value: null, matchMode: FilterMatchMode.CONTAINS},
-                'sizeUnformatted': {value: null, matchMode: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO},
-                'description': {value: null, matchMode: FilterMatchMode.CONTAINS},
-            },
-            numericMatchModes: [
-                {label: '=', value: FilterMatchMode.EQUALS },
-                {label: '!=', value: FilterMatchMode.NOT_EQUALS },
-                {label: '<', value: FilterMatchMode.LESS_THAN },
-                {label: '<=', value: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
-                {label: '>', value: FilterMatchMode.GREATER_THAN },
-                {label: '>=', value: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO }
-            ],
             tableBaseModel: null,
             rootFolderPath: null,
             expandedChildRows: [],
@@ -278,6 +240,30 @@ export default {
                 }
             }
 
+        },
+        onExportNode(selection) {
+            const relevantFilters = exportFileFilters.filter((filter) => {
+                return filter.extensions.find((extension) => {
+                    return extension.toLowerCase() === selection.type.toLowerCase();
+                });
+            });
+
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select save location',
+                    defaultPath: selection.name,
+                    filters: relevantFilters.length > 0 ? relevantFilters : exportFileFilters
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePath) {
+                    messageUI.send('export-ast-node', {
+                        filePath: result.filePath,
+                        node: selection
+                    });
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
         }
     },
     unmounted() {
@@ -311,32 +297,8 @@ export default {
         display: flex;
     }
 
-    .data-table-wrapper {
-        flex-shrink: 3;
-        margin-left: 20px;
-        flex-grow: 2;
-        display: flex;
-        flex-direction: column;
-
-        .p-datatable {
-            overflow: auto;
-        }
-    }
-
     .p-tree {
         overflow: auto;
         flex-basis: 27%;
-    }
-
-    .data-table-header {
-        margin-bottom: 10px;
-        font-size: 18px;
-        text-align: center;
-    }
-</style>
-
-<style lang="scss">
-    .p-datatable .p-datatable-tbody th .p-column-title {
-        display: inherit;
     }
 </style>
