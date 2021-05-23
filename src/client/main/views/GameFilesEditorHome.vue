@@ -99,18 +99,24 @@ export default {
             else {
                 this.$toast.removeAllGroups();
 
-                this.astModel.find((rootFile) => {
+                const astModelRoot = this.astModel.find((rootFile) => {
                     return rootFile.key === res._node.key;
-                }).children = res._node.children;
+                });
+
+                astModelRoot.children = res._node.children;
 
                 const astChildren = filterASTChildrenRecursively(JSON.parse(JSON.stringify(res._node.children)));
 
-                this.treeModel.find((rootFile) => {
+                const treeModelRoot = this.treeModel.find((rootFile) => {
                     return rootFile.key === res._node.key;
-                }).children = astChildren;
+                });
+
+                // We have separate models because the tree model only displays ASTs - not other child files.
+                treeModelRoot.children = astChildren;
+                treeModelRoot.data.loaded = res._node.data.loaded;
 
                 if (this.setTableBaseModelAfterLoad) {
-                    this.onNodeSelect(this.selectedNode);
+                    this.onNodeSelect(treeModelRoot);
                     this.isDataViewerLoading = false;
                 }
             }
@@ -147,7 +153,7 @@ export default {
                     'size': childNode.data.size,
                     'sizeUnformatted': childNode.data.sizeUnformatted,
                     'type': childNode.data.type,
-                    'description': childNode.data.description,
+                    'description': childNode.data.description
                 }
             });
         }
@@ -198,7 +204,9 @@ export default {
         },
 
         onNodeExpand(node) {
-            if (!node.children) {
+            console.log(node);
+
+            if (!node.data || !node.data.loaded) {
                 this.isTreeViewerLoading = true;
                 messageUI.send('get-ast-child-nodes', node);
             }
@@ -207,41 +215,47 @@ export default {
         onNodeSelect(node) {
             this.selectedNode = node;
 
-            if (!node.children) {
+            if (!node.data || !node.data.loaded) {
                 this.isTreeViewerLoading = true;
                 this.isDataViewerLoading = true;
                 this.setTableBaseModelAfterLoad = true;
                 messageUI.send('get-ast-child-nodes', node);
             }
             else {
-                const keyIsChild = node.key.indexOf('_') > -1;
-    
-                if (keyIsChild) {
-                    const nodesToFind = node.key.split('_');
+                if (node.children) {
+                    const keyIsChild = node.key.indexOf('_') > -1;
         
-                    if (nodesToFind.length > 1) {
-                        let workingNode = this.astModel.find((rootNode) => {
-                            return rootNode.key == nodesToFind[0];
-                        });
-        
-                        nodesToFind.slice(1).forEach((nodeKey) => {
-                            workingNode = workingNode.children.find((childNode) => {
-                                return childNode.key == `${workingNode.key}_${nodeKey}`;
+                    if (keyIsChild) {
+                        const nodesToFind = node.key.split('_');
+            
+                        if (nodesToFind.length > 1) {
+                            let workingNode = this.astModel.find((rootNode) => {
+                                return rootNode.key == nodesToFind[0];
                             });
-                        });
-        
-                        this.tableBaseModel = workingNode;
+            
+                            nodesToFind.slice(1).forEach((nodeKey) => {
+                                workingNode = workingNode.children.find((childNode) => {
+                                    return childNode.key == `${workingNode.key}_${nodeKey}`;
+                                });
+                            });
+            
+                            this.tableBaseModel = workingNode;
+                        }
+                    }
+                    else {
+                        this.tableBaseModel = this.astModel.find((rootNode) => {
+                            return rootNode.key === node.key;
+                        })
                     }
                 }
                 else {
-                    this.tableBaseModel = this.astModel.find((rootNode) => {
-                        return rootNode.key === node.key;
-                    })
+                    this.tableBaseModel = null;
                 }
             }
-
         },
         onExportNode(selection) {
+            console.log(selection);
+            
             const relevantFilters = exportFileFilters.filter((filter) => {
                 return filter.extensions.find((extension) => {
                     return extension.toLowerCase() === selection.type.toLowerCase();

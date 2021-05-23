@@ -49,7 +49,8 @@ astService.openRootFolder = (rootPath) => {
                                         'size': prettyBytes(stats.size),
                                         'type': 'Root AST',
                                         'description': '',
-                                        'absolutePath': path.join(absoluteRootPath, fileName)
+                                        'absolutePath': path.join(absoluteRootPath, fileName),
+                                        'loaded': false
                                     },
                                     'leaf': false
                                 });
@@ -131,6 +132,9 @@ function readASTFromStream(stream, recursiveRead) {
                             }
                             else if (chunk[0] === 0x89 && chunk[1] === 0x50 && chunk[2] === 0x4E && chunk[3] === 0x47) {
                                 fileExtension = 'png';
+                            }
+                            else {
+                                fileExtension = 'dat';
                             }
                         }
             
@@ -226,7 +230,7 @@ function readASTFromStream(stream, recursiveRead) {
 astService.parseArchiveFileList = (astFile, rootNode) => {
     return astFile.tocs.map((toc, index) => {
         let mappedFile = {
-            'key': `${rootNode.key}_${index}`,
+            'key': `${rootNode.key}_${toc.index}`,
             'label': `${toc.index.toString('16')} - ${toc.startPositionInt.toString('16').padStart(8, '0')}`,
             'data': {
                 'index': toc.index,
@@ -234,7 +238,8 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
                 'sizeUnformatted': toc.fileSizeInt ? toc.fileSizeInt : 0,
                 'size': prettyBytes(toc.fileSizeInt),
                 'type': toc.fileExtension ? toc.fileExtension.toUpperCase() : '?',
-                'description': toc.descriptionString
+                'description': toc.descriptionString,
+                'loaded': true
             },
             'leaf': toc.fileExtension !== 'ast'
         }

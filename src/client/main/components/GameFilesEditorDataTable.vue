@@ -1,6 +1,6 @@
 <template>
     <div class="data-table-wrapper">
-        <DataTable class="p-datatable-sm" stripedRows removableSort dataKey="key"
+        <DataTable class="p-datatable-sm" stripedRows removableSort sortField="index" :sortOrder="1" dataKey="key"
             :value="tableModel"  :scrollable="true" scrollHeight="flex" :loading="isLoading"
             :paginator="true" :rows="20" :rowsPerPageOptions="[10,20,50]"
             v-model:filters="dataTableFilters" filterDisplay="row"
