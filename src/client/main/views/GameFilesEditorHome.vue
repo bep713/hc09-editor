@@ -7,7 +7,8 @@
         </div>
         <div class="file-viewer-wrapper">
             <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
-                @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"></Tree>
+                @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"
+                :filter="true" filterMode="lenient"></Tree>
 
             <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
                 :isLoading="isDataViewerLoading" @export-node="onExportNode" />
@@ -28,6 +29,11 @@
                 </p>
             </div>
         </Dialog>
+
+        <Dialog :modal="true" :closable="false" v-model:visible="isExporting">
+            <ProgressSpinner />
+        </Dialog>
+
         <Toast position="bottom-right" />
     </div>
 </template>
@@ -37,6 +43,7 @@ import Tree from 'primevue/tree';
 import Toast from 'primevue/toast';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
+import ProgressSpinner from 'primevue/progressspinner';
 
 import GameFilesEditorDataTable from '../components/GameFilesEditorDataTable';
 
@@ -64,11 +71,11 @@ export default {
         Toast,
         Button,
         Dialog,
+        ProgressSpinner,
         GameFilesEditorDataTable
     },
     created() {
         messageUI.on('open-root-folder', (_, res) => {
-            console.log(res);
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -87,7 +94,6 @@ export default {
         });
 
         messageUI.on('get-ast-child-nodes', (_, res) => {
-            console.log(res);
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -142,6 +148,27 @@ export default {
                 });
             }
         });
+
+        messageUI.on('export-ast-node', (_, res) => {
+            this.isExporting = false;
+
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Export Error', 
+                    detail: 'There was an error exporting the selected file. Please try again.', 
+                    life: 4000
+                });
+            }
+            else {
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'Export Successful', 
+                    detail: `The exported file "${res._filePath}" is now available.`, 
+                    life: 4000
+                });
+            }
+        })
     },
     computed: {
         tableModel() {
@@ -166,6 +193,7 @@ export default {
             expandedRows: [],
             selectedKey: null,
             selectedNode: null,
+            isExporting: false,
             tableBaseModel: null,
             rootFolderPath: null,
             expandedChildRows: [],
@@ -253,9 +281,9 @@ export default {
                 }
             }
         },
-        onExportNode(selection) {
-            console.log(selection);
-            
+        onExportNode(options) {
+            const selection = options.selection;
+
             const relevantFilters = exportFileFilters.filter((filter) => {
                 return filter.extensions.find((extension) => {
                     return extension.toLowerCase() === selection.type.toLowerCase();
@@ -270,9 +298,13 @@ export default {
                 }).resolve().value();
             }).then((result) => {
                 if (!result.cancelled && result.filePath) {
+                    const filePath = options.shouldDecompressFile ? result.filePath : `${result.filePath}.compressed`;
+                    this.isExporting = true;
+
                     messageUI.send('export-ast-node', {
-                        filePath: result.filePath,
-                        node: selection
+                        filePath: filePath,
+                        node: selection,
+                        shouldDecompressFile: options.shouldDecompressFile
                     });
                 }
             }).catch((err) => {

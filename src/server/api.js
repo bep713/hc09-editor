@@ -103,9 +103,11 @@ module.exports.initializeListeners = function (mainWindow) {
     });
 
     ipcMain.on('export-ast-node', (_, data) => {
-        astEditorService.exportNode(data.filePath, data.node)
+        astEditorService.exportNode(data.filePath, data.node, data.shouldDecompressFile)
             .then(() => {
-                
+                const response = new EventResponse(true);
+                response._filePath = data.filePath;
+                mainWindow.webContents.send('export-ast-node', response);
             })
             .catch((err) => {
                 sendErrorResponse(err, 'export-ast-node');

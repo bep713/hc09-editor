@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const log = require('../../util/logger');
 const prettyBytes = require('pretty-bytes');
 const ASTParser = require('madden-file-tools/streams/ASTParser');
@@ -252,29 +253,50 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
     })
 };
 
-astService.exportNode = (exportPath, node) => {
+astService.exportNode = (exportPath, node, shouldDecompressFile) => {
     return new Promise((resolve, reject) => {
         const nodeHierarchy = node.key.split('_');
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
         const rootStream = fs.createReadStream(rootASTFile.absolutePath);
+
+        const options = {
+            'nodeHierarchy': nodeHierarchy.slice(1),
+            'exportPath': exportPath,
+            'shouldDecompressFile': shouldDecompressFile
+        };
         
-        resolve(astService.exportNodeFromStream(rootStream, nodeHierarchy.slice(1), exportPath));
+        resolve(astService.exportNodeFromStream(rootStream, options));
     });
 };
 
-astService.exportNodeFromStream = (stream, nodeHierarchy, exportPath) => {
+astService.exportNodeFromStream = (stream, options) => {
     return new Promise((resolve, reject) => {
         const newParser = new ASTParser();
 
         newParser.on('compressed-file', (astData) => {
-            if (astData.toc.index == nodeHierarchy[0]) {
-                if (nodeHierarchy.length > 1) {
-                    resolve(astService.exportNodeFromStream(astData.stream, nodeHierarchy.slice(1), exportPath));
+            if (astData.toc.index == options.nodeHierarchy[0]) {
+                if (options.nodeHierarchy.length > 1) {
+                    resolve(astService.exportNodeFromStream(astData.stream, {
+                        nodeHierarchy: options.nodeHierarchy.slice(1),
+                        exportPath: options.exportPath,
+                        shouldDecompressFile: options.shouldDecompressFile
+                    }));
                 }
                 else {
+                    let pipes = [
+                        astData.stream
+                    ];
+
+                    if (options.shouldDecompressFile) {
+                        pipes = [
+                            astData.stream,
+                            zlib.createInflate()
+                        ]
+                    }
+
                     pipeline(
-                        astData.stream,
-                        fs.createWriteStream(exportPath),
+                        ...pipes,
+                        fs.createWriteStream(options.exportPath),
                         (err) => {
                             if (err) {
                                 reject(err);

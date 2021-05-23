@@ -78,7 +78,8 @@ export default {
                 {label: '>=', value: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO }
             ],
             menuModel: [
-                {label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode)}
+                {label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode)},
+                {label: 'Export Compressed', icon: 'pi pi-fw pi-download', command: () => this.exportSelectionCompressed(this.selectedNode)}
             ],
             selectedNode: null
         }
@@ -89,7 +90,17 @@ export default {
         },
 
         exportSelection(selection) {
-            this.$emit('export-node', selection);
+            this.$emit('export-node', {
+                selection: selection,
+                shouldDecompressFile: true
+            });
+        },
+
+        exportSelectionCompressed(selection) {
+            this.$emit('export-node', {
+                selection: selection,
+                shouldDecompressFile: false
+            });
         }
     }
 }
