@@ -2,7 +2,7 @@
     <div class="data-table-wrapper">
         <DataTable class="p-datatable-sm" stripedRows removableSort sortField="index" :sortOrder="1" dataKey="key"
             :value="tableModel"  :scrollable="true" scrollHeight="flex" :loading="isLoading"
-            :paginator="true" :rows="20" :rowsPerPageOptions="[10,20,50]"
+            :paginator="true" :rows="5" :rowsPerPageOptions="[5,10,20,50]"
             v-model:filters="dataTableFilters" filterDisplay="row"
             contextMenu v-model:contextMenuSelection="selectedNode" @rowContextmenu="onRowContextMenu">
             <template #header>
@@ -78,8 +78,10 @@ export default {
                 {label: '>=', value: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO }
             ],
             menuModel: [
-                {label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode)},
-                {label: 'Export Compressed', icon: 'pi pi-fw pi-download', command: () => this.exportSelectionCompressed(this.selectedNode)}
+                { label: 'Import', icon: 'pi pi-fw pi-upload', command: () => this.importSelection(this.selectedNode) },
+                { separator: true },
+                { label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode) },
+                { label: 'Export Compressed', icon: 'pi pi-fw pi-download', command: () => this.exportSelectionCompressed(this.selectedNode) }
             ],
             selectedNode: null
         }
@@ -87,6 +89,12 @@ export default {
     methods: {
         onRowContextMenu(event) {
             this.$refs.cm.show(event.originalEvent);
+        },
+
+        importSelection(selection) {
+            this.$emit('import-node', {
+                selection: selection
+            })
         },
 
         exportSelection(selection) {

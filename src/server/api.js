@@ -114,6 +114,18 @@ module.exports.initializeListeners = function (mainWindow) {
             })
     });
 
+    ipcMain.on('import-ast-node', (_, data) => {
+        astEditorService.importNode(data.filePath, data.node)
+            .then(() => {
+                const response = new EventResponse(true);
+                response._filePath = data.filePath;
+                mainWindow.webContents.send('import-ast-node', response);
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'import-ast-node');
+            })
+    });
+
     function sendErrorResponse(err, event) {
         log.error(err);
         const response = new EventResponse(false);

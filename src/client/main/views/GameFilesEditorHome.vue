@@ -11,7 +11,7 @@
                 :filter="true" filterMode="lenient"></Tree>
 
             <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
-                :isLoading="isDataViewerLoading" @export-node="onExportNode" />
+                :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" />
         </div>
         <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true">
             <div class="help-wrapper">
@@ -30,7 +30,7 @@
             </div>
         </Dialog>
 
-        <Dialog :modal="true" :closable="false" v-model:visible="isExporting">
+        <Dialog :modal="true" :closable="false" v-model:visible="longRunningActionIsRunning">
             <ProgressSpinner />
         </Dialog>
 
@@ -168,7 +168,28 @@ export default {
                     life: 4000
                 });
             }
-        })
+        });
+
+        messageUI.on('import-ast-node', (_, res) => {
+            this.isImporting = false;
+
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Import Error', 
+                    detail: 'There was an error importing the selected file. Please try again.', 
+                    life: 4000
+                });
+            }
+            else {
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'Import Successful', 
+                    detail: `The selected file has been imported successfully.`, 
+                    life: 4000
+                });
+            }
+        });
     },
     computed: {
         tableModel() {
@@ -183,6 +204,9 @@ export default {
                     'description': childNode.data.description
                 }
             });
+        },
+        longRunningActionIsRunning() {
+            return this.isExporting || this.isImporting;
         }
     },
     data() {
@@ -193,6 +217,7 @@ export default {
             expandedRows: [],
             selectedKey: null,
             selectedNode: null,
+            isImporting: false,
             isExporting: false,
             tableBaseModel: null,
             rootFolderPath: null,
@@ -281,6 +306,7 @@ export default {
                 }
             }
         },
+
         onExportNode(options) {
             const selection = options.selection;
 
@@ -310,11 +336,41 @@ export default {
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onImportNode(options) {
+            const selection = options.selection;
+            
+            const relevantFilters = exportFileFilters.filter((filter) => {
+                return filter.extensions.find((extension) => {
+                    return extension.toLowerCase() === selection.type.toLowerCase();
+                });
+            });
+
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select file to import',
+                    filters: relevantFilters.length > 0 ? relevantFilters : exportFileFilters
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePaths.length > 0) {
+                    this.isImporting = true;
+
+                    messageUI.send('import-ast-node', {
+                        filePath: result.filePaths[0],
+                        node: selection
+                    });
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
         }
     },
     unmounted() {
         messageUI.removeAllListeners('open-file-path');
         messageUI.removeAllListeners('get-ast-child-nodes');
+        messageUI.removeAllListeners('export-ast-node');
+        messageUI.removeAllListeners('import-ast-node');
     }
 }
 </script>

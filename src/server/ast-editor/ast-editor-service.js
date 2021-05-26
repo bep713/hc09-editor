@@ -3,8 +3,9 @@ const path = require('path');
 const zlib = require('zlib');
 const log = require('../../util/logger');
 const prettyBytes = require('pretty-bytes');
+const { pipeline, Transform, Readable, Writable } = require('stream');
 const ASTParser = require('madden-file-tools/streams/ASTParser');
-const { pipeline, Transform, Readable } = require('stream');
+const ASTTransformer = require('madden-file-tools/streams/ASTTransformer');
 
 let astService = {};
 
@@ -240,7 +241,8 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
                 'size': prettyBytes(toc.fileSizeInt),
                 'type': toc.fileExtension ? toc.fileExtension.toUpperCase() : '?',
                 'description': toc.descriptionString,
-                'loaded': true
+                'loaded': true,
+                'isCompressed': toc.uncompressedSize.length > 0 ? toc.uncompressedSizeInt > 0 : false
             },
             'leaf': toc.fileExtension !== 'ast'
         }
@@ -316,6 +318,156 @@ astService.exportNodeFromStream = (stream, options) => {
             (err) => {
                 if (err) {
                     reject(err);
+                }
+            }
+        );
+    });
+};
+
+astService.importNode = (filePath, node) => {
+    return new Promise((resolve, reject) => {
+        const nodeHierarchy = node.key.split('_');
+        const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
+        const rootStream = fs.createReadStream(rootASTFile.absolutePath);
+
+        const options = {
+            'originalNodeHierarchy': nodeHierarchy,
+            'currentNodeHierarchy': nodeHierarchy.slice(1),
+            'importFilePath': filePath,
+            'astBuffers': [],
+            'astParserFiles': []
+        };
+        
+        resolve(astService.importNodeFromStream(rootStream, options));
+    });
+};
+
+astService.importNodeFromStream = (stream, options) => {
+    return new Promise((resolve, reject) => {
+        let compressedStreamToReadNext = null;
+        let currentASTBuffers = [];
+
+        const newParser = new ASTParser();
+
+        if (options.currentNodeHierarchy.length > 1) {
+            newParser.on('compressed-file', (astData) => {
+                if (astData.toc.index == options.currentNodeHierarchy[0]) {
+                    compressedStreamToReadNext = astData.stream;
+                }
+            });
+        }
+
+        pipeline(
+            stream,
+            new Transform({
+                transform(chunk, enc, cb) {
+                    currentASTBuffers.push(chunk);
+                    this.push(chunk);
+                    cb();
+                }
+            }),
+            newParser,
+            (err) => {
+                if (err) {
+                    reject(err);
+                }
+
+                options.astBuffers.push(currentASTBuffers);
+                options.astParserFiles.push(newParser);
+
+                if (options.currentNodeHierarchy.length > 1) {
+                    resolve(astService.importNodeFromStream(compressedStreamToReadNext, {
+                        originalNodeHierarchy: options.originalNodeHierarchy,
+                        currentNodeHierarchy: options.currentNodeHierarchy.slice(1),
+                        importFilePath: options.importFilePath,
+                        astBuffers: options.astBuffers,
+                        astParserFiles: options.astParserFiles
+                    }));
+                }
+                else {
+                    // read the file to import
+                    fs.promises.readFile(options.importFilePath)
+                        .then((importFileBuffer) => {
+                            const reverseNodeHierarchy = options.originalNodeHierarchy.reverse();
+
+                            resolve(importNode({
+                                reverseNodeHierarchy: reverseNodeHierarchy,
+                                dataToImport: importFileBuffer,
+                                astBuffers: options.astBuffers,
+                                astParserFiles: options.astParserFiles
+                            }))
+
+                            function importNode(options) {
+                                return new Promise((resolve, reject) => {
+                                    log.info('Index: ' + options.reverseNodeHierarchy[0]);
+
+                                    const parserToUse = options.astParserFiles.pop();
+                                    const tocToImport = parserToUse.file.tocs.find((toc) => { return toc.index == options.reverseNodeHierarchy[0] });
+                                    const newDataNeedsCompressed = tocToImport.uncompressedSize.length > 0 && tocToImport.uncompressedSizeInt > 0
+                                    
+                                    if (newDataNeedsCompressed) {
+                                        log.info('needs compressed');
+                                        options.dataToImport = zlib.deflateSync(options.dataToImport)
+                                    }
+                                    
+                                    tocToImport.data = options.dataToImport;
+                                    
+                                    const transformer = new ASTTransformer(parserToUse.file);
+                                    
+                                    const readable = new Readable();
+                                    readable._read = () => {};
+                                    
+                                    const buffersToReadIn = options.astBuffers.pop();
+                                    
+                                    buffersToReadIn.forEach((buf) => {
+                                        readable.push(buf);
+                                    });
+                                    
+                                    readable.push(null);
+                                    
+                                    let newDataToImportBuffers = [];
+
+                                    if (options.reverseNodeHierarchy.length > 2) {
+                                        pipeline(
+                                            readable,
+                                            transformer,
+                                            new Writable({
+                                                write(chunk, enc, cb) {
+                                                    newDataToImportBuffers.push(chunk);
+                                                    cb();
+                                                }
+                                            }),
+                                            (err) => {
+                                                if (err) {
+                                                    reject(err);
+                                                }
+
+                                                resolve(importNode({
+                                                    reverseNodeHierarchy: options.reverseNodeHierarchy.slice(1),
+                                                    dataToImport: Buffer.concat(newDataToImportBuffers),
+                                                    astBuffers: options.astBuffers,
+                                                    astParserFiles: options.astParserFiles
+                                                }));
+                                            }
+                                        )
+                                    }
+                                    else {
+                                        pipeline(
+                                            readable,
+                                            transformer,
+                                            fs.createWriteStream(astService.activeASTFiles[options.reverseNodeHierarchy[1]].absolutePath),
+                                            (err) => {
+                                                if (err) {
+                                                    reject(err);
+                                                }
+
+                                                resolve();
+                                            }
+                                        )
+                                    }
+                                });
+                            };
+                        });
                 }
             }
         );
