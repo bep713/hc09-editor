@@ -1,11 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const dxt = require('dxt-js');
+const sharp = require('sharp');
+const { app } = require('deskgap');
+const { v4: uuid } = require('uuid');
 const log = require('../../util/logger');
 const prettyBytes = require('pretty-bytes');
-const { pipeline, Transform, Readable, Writable } = require('stream');
 const ASTParser = require('madden-file-tools/streams/ASTParser');
+const DDSParser = require('madden-file-tools/streams/DDSParser');
+const { pipeline, Transform, Readable, Writable } = require('stream');
 const ASTTransformer = require('madden-file-tools/streams/ASTTransformer');
+// const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+const workerpool = require('workerpool');
+const pool = workerpool.pool(__dirname + '/read-compressed-file.js');
 
 let astService = {};
 
@@ -77,136 +85,271 @@ astService.openRootFolder = (rootPath) => {
     })
 };
 
-astService.readAST = (astAbsolutePath, recursiveRead) => {
+astService.readAST = (astAbsolutePath, recursiveRead, extractPreviews) => {
     const stream = fs.createReadStream(astAbsolutePath);
-    return readASTFromStream(stream, recursiveRead);
+    return readASTFromStream(stream, recursiveRead, extractPreviews);
 };
 
-function readASTFromStream(stream, recursiveRead) {
+astService.readChildAST = (childNode, recursiveRead, temporaryOutputBasePath) => {
+    // Get root AST from key
+    const readPath = childNode.key.split('_');
+    const rootKey = readPath[0];
+    const rootAST = astService.activeASTFiles[rootKey];
+    const rootStream = fs.createReadStream(rootAST.absolutePath);
+
+    return readASTFromStream(rootStream, recursiveRead, temporaryOutputBasePath, readPath.slice(1));
+};
+
+function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfterRoot) {
     return new Promise((resolve, reject) => {
         let readASTCompressedFilePromises = [];
 
         const parser = new ASTParser();
         parser.extract = true;
 
+        parser.file.id = uuid();    
+
         parser.on('compressed-file', (astData) => {
-            readASTCompressedFilePromises.push(new Promise((resolve, reject) => {
-                let fileExtension = '?';
-
-                const fileExtensionPicker = new Transform({
-                    transform(chunk, enc, cb) {
-                        if (fileExtension === '?') {
-                            if (chunk[0] === 0x44 && chunk[1] === 0x44 && chunk[2] === 0x53) {
-                                fileExtension = 'dds';
+            if (!readPathAfterRoot || readPathAfterRoot.length === 0 || (readPathAfterRoot && astData.toc.index == readPathAfterRoot[0])) {
+                readASTCompressedFilePromises.push(new Promise((resolve, reject) => {
+                    let fileExtension = '?';
+    
+                    const fileExtensionPicker = new Transform({
+                        transform(chunk, enc, cb) {
+                            if (fileExtension === '?') {
+                                if (chunk[0] === 0x44 && chunk[1] === 0x44 && chunk[2] === 0x53) {
+                                    fileExtension = 'dds';
+                                }
+                                else if (chunk[0] === 0x44 && chunk[1] === 0x42) {
+                                    fileExtension = 'db';
+                                }
+                                else if (chunk[0] === 0x78 && chunk[1] === 0x9C) {
+                                    fileExtension = 'ftc';
+                                }
+                                else if (chunk[0] === 0x46 && chunk[1] === 0x72 && chunk[2] === 0x54 && chunk[3] === 0x6B) {
+                                    fileExtension = 'frt';
+                                }
+                                else if (chunk[0] === 0x42 && chunk[1] === 0x47 && chunk[2] === 0x46 && chunk[3] === 0x41 && chunk[4] === 0x31) {
+                                    fileExtension = 'ast';
+                                }
+                                else if (chunk[0] === 0x1A && chunk[1] === 0x45 && chunk[2] === 0xDF && chunk[3] === 0xA3) {
+                                    fileExtension = 'webm';
+                                }
+                                else if (chunk[0] === 0x3C || (chunk[0] === 0xEF && chunk[1] === 0xBB && chunk[2] === 0xBF && chunk[3] === 0x3C)) {
+                                    fileExtension = 'xml';
+                                }
+                                else if (chunk[0] === 0x70 && chunk[1] === 0x33 && chunk[2] === 0x52) {
+                                    fileExtension = 'p3r';
+                                }
+                                else if (chunk[0] === 0x41 && chunk[1] === 0x70 && chunk[2] === 0x74) {
+                                    fileExtension = 'apt';
+                                }
+                                else if (chunk[0] === 0x52 && chunk[1] === 0x53 && chunk[2] === 0x46) {
+                                    fileExtension = 'rsf';
+                                }
+                                else if (chunk[0] === 0x45 && chunk[1] === 0x42 && chunk[2] === 0x4F) {
+                                    fileExtension = 'ebo';
+                                }
+                                else if (chunk[0] === 0x53 && chunk[1] === 0x43 && chunk[2] === 0x48 && chunk[3] === 0x6C) {
+                                    fileExtension = 'schl';
+                                }
+                                else if (chunk[0] === 0x89 && chunk[1] === 0x50 && chunk[2] === 0x4E && chunk[3] === 0x47) {
+                                    fileExtension = 'png';
+                                }
+                                else {
+                                    fileExtension = 'dat';
+                                }
                             }
-                            else if (chunk[0] === 0x44 && chunk[1] === 0x42) {
-                                fileExtension = 'db';
-                            }
-                            else if (chunk[0] === 0x78 && chunk[1] === 0x9C) {
-                                fileExtension = 'ftc';
-                            }
-                            else if (chunk[0] === 0x46 && chunk[1] === 0x72 && chunk[2] === 0x54 && chunk[3] === 0x6B) {
-                                fileExtension = 'frt';
-                            }
-                            else if (chunk[0] === 0x42 && chunk[1] === 0x47 && chunk[2] === 0x46 && chunk[3] === 0x41 && chunk[4] === 0x31) {
-                                fileExtension = 'ast';
-                            }
-                            else if (chunk[0] === 0x1A && chunk[1] === 0x45 && chunk[2] === 0xDF && chunk[3] === 0xA3) {
-                                fileExtension = 'webm';
-                            }
-                            else if (chunk[0] === 0x3C || (chunk[0] === 0xEF && chunk[1] === 0xBB && chunk[2] === 0xBF && chunk[3] === 0x3C)) {
-                                fileExtension = 'xml';
-                            }
-                            else if (chunk[0] === 0x70 && chunk[1] === 0x33 && chunk[2] === 0x52) {
-                                fileExtension = 'p3r';
-                            }
-                            else if (chunk[0] === 0x41 && chunk[1] === 0x70 && chunk[2] === 0x74) {
-                                fileExtension = 'apt';
-                            }
-                            else if (chunk[0] === 0x52 && chunk[1] === 0x53 && chunk[2] === 0x46) {
-                                fileExtension = 'rsf';
-                            }
-                            else if (chunk[0] === 0x45 && chunk[1] === 0x42 && chunk[2] === 0x4F) {
-                                fileExtension = 'ebo';
-                            }
-                            else if (chunk[0] === 0x53 && chunk[1] === 0x43 && chunk[2] === 0x48 && chunk[3] === 0x6C) {
-                                fileExtension = 'schl';
-                            }
-                            else if (chunk[0] === 0x89 && chunk[1] === 0x50 && chunk[2] === 0x4E && chunk[3] === 0x47) {
-                                fileExtension = 'png';
-                            }
-                            else {
-                                fileExtension = 'dat';
-                            }
+                
+                            this.push(chunk);
+                            cb();
                         }
-            
-                        this.push(chunk);
-                        cb();
+                    });
+    
+                    let newASTStream = new Readable();
+                    newASTStream._read = () => {};
+    
+                    let tempStoreStream = new Readable();
+                    tempStoreStream._read = () => {};
+    
+                    const isNotCompressed = astData.toc.uncompressedSize.length === 0 || astData.toc.uncompressedSizeInt === 0;
+                    let pipes = [];
+    
+                    if (isNotCompressed) {
+                        pipes = [
+                            astData.stream,
+                            fileExtensionPicker,
+                            new Transform({
+                                transform(chunk, enc, cb) {
+                                    newASTStream.push(chunk);
+                                    cb();
+                                }
+                            }),
+                        ];
                     }
-                });
-
-                let newASTStream = new Readable();
-                newASTStream._read = () => {};
-
-                const isNotCompressed = astData.toc.uncompressedSize.length === 0 || astData.toc.uncompressedSizeInt === 0;
-                let pipes = [];
-
-                if (isNotCompressed) {
-                    pipes = [
-                        astData.stream,
-                        fileExtensionPicker,
-                        new Transform({
-                            transform(chunk, enc, cb) {
-                                newASTStream.push(chunk);
-                                cb();
+                    else {
+                        pipes = [
+                            astData.stream,
+                            zlib.createInflate(),
+                            fileExtensionPicker,
+                            new Transform({
+                                transform(chunk, enc, cb) {
+                                    newASTStream.push(chunk);
+    
+                                    if (extractPreviews) {
+                                        tempStoreStream.push(chunk);
+                                    }
+    
+                                    cb();
+                                }
+                            }),
+                        ];
+                    }
+    
+                    pipeline(
+                        ...pipes,
+                        (err) => {
+                            if (err) {
+                                reject(err);
                             }
-                        }),
-                    ];
-                }
-                else {
-                    pipes = [
-                        astData.stream,
-                        zlib.createInflate(),
-                        fileExtensionPicker,
-                        new Transform({
-                            transform(chunk, enc, cb) {
-                                newASTStream.push(chunk);
-                                cb();
-                            }
-                        }),
-                    ];
-                }
+    
+                            newASTStream.push(null);
+    
+                            astData.toc.fileExtension = fileExtension;
 
-                pipeline(
-                    ...pipes,
-                    (err) => {
-                        if (err) {
-                            reject(err);
-                        }
+                            let extractPreviewPromise = new Promise((resolve, reject) => {
+                                if (extractPreviews && fileExtension === 'dds') {
+                                    tempStoreStream.push(null);
+                                    
+                                    const ddsParser = new DDSParser();
+                                    let imageData;
+                                    
+                                    pipeline(
+                                        tempStoreStream,
+                                        ddsParser,
+                                        new Transform({
+                                            transform(chunk, enc, cb) {
+                                                if (this.ddsData === undefined) { 
+                                                    this.ddsData = chunk;
+                                                }
+                                                else { 
+                                                    this.ddsData = Buffer.concat([this.ddsData, chunk]);
+                                                }
+        
+                                                cb();
+                                            },
+                                            flush(cb) {
+                                                if (Object.keys(ddsParser._file.header).length > 0) {
+                                                    let flag = null;
+                                                    
+                                                    switch(ddsParser._file.header.format) {
+                                                        case 'dxt1':
+                                                            flag = dxt.flags.DXT1;
+                                                            break;
+                                                        case 'dxt3':
+                                                            flag = dxt.flags.DXT3;
+                                                            break;
+                                                        case 'dxt5':
+                                                            flag = dxt.flags.DXT5;
+                                                            break;
+                                                        default:
+                                                            flag = 'uncompressed';
+                                                            break;
+                                                    }
+        
+                                                    if (flag === 'uncompressed') {
+                                                        // Transform DDS data from BGRA to RGBA
+                                                        for (let i = ddsParser._file.header.images[0].offset; i < this.ddsData.length; i += 4) {
+                                                            const temp = this.ddsData[i];
+                                                            this.ddsData[i] = this.ddsData[i+2];
+                                                            this.ddsData[i+2] = temp;
+                                                        }
+        
+                                                        imageData = this.ddsData.slice(ddsParser._file.header.images[0].offset);
+                                                    }
+                                                    else {
+                                                        const compressedBuffer = new Uint8Array(this.ddsData.slice(ddsParser._file.header.images[0].offset));
+                                                        imageData = Buffer.from(dxt.decompress(compressedBuffer, ddsParser._file.header.width, ddsParser._file.header.height, flag));
+                                                    }
+                                                }
+        
+                                                cb();
+                                            }
+                                        }),
+                                        (err) => {
+                                            if (err) {
+                                                log.error(err);
+                                                reject(err);
+                                            }
+        
+                                            if (imageData) {
+                                                try {
+                                                    sharp(imageData, {
+                                                        'raw': {
+                                                            'width': ddsParser._file.header.width,
+                                                            'height': ddsParser._file.header.height,
+                                                            'channels': 4
+                                                        }
+                                                    })
+                                                        .webp()
+                                                        .toBuffer()
+                                                            .then((buf) => {
+                                                                astData.toc.preview = `data:image/webp;base64,${buf.toString('base64')}`;
+                                                                resolve();
+                                                            })
+                                                            .catch((err) => {
+                                                                log.error(err);
+                                                                reject(err);
+                                                            })
+                                                }
+                                                catch (err) {
+                                                    log.error(err);
+                                                    reject(err);
+                                                }
+                                            }
+                                            else {
+                                                resolve();
+                                            }
+                                        }
+                                    )
+                                }
+                                else {
+                                    tempStoreStream = null;
+                                    astData.toc.preview = '';
+                                    resolve();
+                                }
+                            });
 
-                        newASTStream.push(null);
-
-                        astData.toc.fileExtension = fileExtension;
-
-                        if (recursiveRead && fileExtension === 'ast') {
-                            readASTFromStream(newASTStream, true)
-                                .then((file) => {
-                                    astData.toc.file = file;
+                            extractPreviewPromise.then(() => {
+                                if (readPathAfterRoot && readPathAfterRoot.length > 0) {
+                                    readASTFromStream(newASTStream, recursiveRead, extractPreviews, readPathAfterRoot.slice(1))
+                                        .then((file) => {
+                                            astData.toc.file = file;
+                                            resolve(parser.file);
+                                        })
+                                        .catch((err) => {
+                                            reject(err);
+                                        });
+                                }
+                                else if (recursiveRead && fileExtension === 'ast') {
+                                    readASTFromStream(newASTStream, true, extractPreviews)
+                                        .then((file) => {
+                                            astData.toc.file = file;
+                                            resolve(parser.file);
+                                        })
+                                        .catch((err) => {
+                                            reject(err);
+                                        });
+                                }
+                                else {
                                     resolve(parser.file);
-                                })
-                                .catch((err) => {
-                                    reject(err);
-                                })
+                                }
+                            })
+    
                         }
-
-                        // if (astData.toc === parser.file.tocs[parser.file.tocs.length - 1]) {
-                            // resolve(parser.file);
-                        // }
-
-                        resolve(parser.file);
-                    }
-                )
-            }));
+                    )
+                }));
+            }
         });
 
         pipeline(
@@ -231,6 +374,7 @@ function readASTFromStream(stream, recursiveRead) {
 
 astService.parseArchiveFileList = (astFile, rootNode) => {
     return astFile.tocs.map((toc, index) => {
+        
         let mappedFile = {
             'key': `${rootNode.key}_${toc.index}`,
             'label': `${toc.index.toString('16')} - ${toc.startPositionInt.toString('16').padStart(8, '0')}`,
@@ -241,8 +385,9 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
                 'size': prettyBytes(toc.fileSizeInt),
                 'type': toc.fileExtension ? toc.fileExtension.toUpperCase() : '?',
                 'description': toc.descriptionString,
-                'loaded': true,
-                'isCompressed': toc.uncompressedSize.length > 0 ? toc.uncompressedSizeInt > 0 : false
+                'loaded': toc.fileExtension === 'ast' ? (toc.file !== null && toc.file !== undefined) : true,
+                'isCompressed': toc.uncompressedSize.length > 0 ? toc.uncompressedSizeInt > 0 : false,
+                'previewLocation': toc.preview ? toc.preview : ''
             },
             'leaf': toc.fileExtension !== 'ast'
         }
@@ -330,24 +475,43 @@ astService.importNode = (filePath, node) => {
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
         const rootStream = fs.createReadStream(rootASTFile.absolutePath);
 
-        const options = {
-            'originalNodeHierarchy': nodeHierarchy,
-            'currentNodeHierarchy': nodeHierarchy.slice(1),
-            'importFilePath': filePath,
-            'astBuffers': [],
-            'astParserFiles': []
-        };
-        
-        resolve(astService.importNodeFromStream(rootStream, options));
+        const tempFolder = path.join(app.getPath('userData'), uuid());
+        fs.promises.mkdir(tempFolder)
+            .then(() => {
+                const options = {
+                    'originalNodeHierarchy': nodeHierarchy,
+                    'currentNodeHierarchy': nodeHierarchy.slice(1),
+                    'importFilePath': filePath,
+                    'temporaryFolderPath': tempFolder,
+                    'astParserFiles': []
+                };
+                
+                astService.importNodeFromStream(rootStream, options)
+                    .then(() => {
+                        fs.promises.rmdir(tempFolder, { force: true, recursive: true })
+                            .then(() => {
+                                resolve();
+                            })
+                            .catch((err) => {
+                                log.error('There was a problem removing the temporary folder: ' + err);
+                                resolve();
+                            });
+                    });
+            })
+            .catch((err) => {
+                log.error(err);
+            })
+
     });
 };
 
 astService.importNodeFromStream = (stream, options) => {
     return new Promise((resolve, reject) => {
         let compressedStreamToReadNext = null;
-        let currentASTBuffers = [];
-
         const newParser = new ASTParser();
+
+        const index = options.originalNodeHierarchy.length - options.currentNodeHierarchy.length;
+        const writeStream = fs.createWriteStream(path.join(options.temporaryFolderPath, `${index}.temp`));
 
         if (options.currentNodeHierarchy.length > 1) {
             newParser.on('compressed-file', (astData) => {
@@ -361,7 +525,7 @@ astService.importNodeFromStream = (stream, options) => {
             stream,
             new Transform({
                 transform(chunk, enc, cb) {
-                    currentASTBuffers.push(chunk);
+                    writeStream.write(chunk);
                     this.push(chunk);
                     cb();
                 }
@@ -372,7 +536,8 @@ astService.importNodeFromStream = (stream, options) => {
                     reject(err);
                 }
 
-                options.astBuffers.push(currentASTBuffers);
+                writeStream.end();
+
                 options.astParserFiles.push(newParser);
 
                 if (options.currentNodeHierarchy.length > 1) {
@@ -380,72 +545,53 @@ astService.importNodeFromStream = (stream, options) => {
                         originalNodeHierarchy: options.originalNodeHierarchy,
                         currentNodeHierarchy: options.currentNodeHierarchy.slice(1),
                         importFilePath: options.importFilePath,
-                        astBuffers: options.astBuffers,
+                        temporaryFolderPath: options.temporaryFolderPath,
                         astParserFiles: options.astParserFiles
                     }));
                 }
-                else {
-                    // read the file to import
-                    fs.promises.readFile(options.importFilePath)
-                        .then((importFileBuffer) => {
-                            const reverseNodeHierarchy = options.originalNodeHierarchy.reverse();
+                else {                  
+                    const reverseNodeHierarchy = options.originalNodeHierarchy.reverse();
 
-                            resolve(importNode({
-                                reverseNodeHierarchy: reverseNodeHierarchy,
-                                dataToImport: importFileBuffer,
-                                astBuffers: options.astBuffers,
-                                astParserFiles: options.astParserFiles
-                            }))
+                    resolve(importNode({
+                        index: index,
+                        reverseNodeHierarchy: reverseNodeHierarchy,
+                        dataToImport: options.importFilePath,
+                        astParserFiles: options.astParserFiles,
+                        temporaryFolderPath: options.temporaryFolderPath
+                    }))
 
-                            function importNode(options) {
-                                return new Promise((resolve, reject) => {
-                                    log.info('Index: ' + options.reverseNodeHierarchy[0]);
-
+                    function importNode(options) {
+                        return new Promise((resolve, reject) => {
+                            fs.promises.readFile(options.dataToImport)
+                                .then((importFileBuffer) => {
                                     const parserToUse = options.astParserFiles.pop();
                                     const tocToImport = parserToUse.file.tocs.find((toc) => { return toc.index == options.reverseNodeHierarchy[0] });
                                     const newDataNeedsCompressed = tocToImport.uncompressedSize.length > 0 && tocToImport.uncompressedSizeInt > 0
                                     
                                     if (newDataNeedsCompressed) {
-                                        log.info('needs compressed');
-                                        options.dataToImport = zlib.deflateSync(options.dataToImport)
+                                        importFileBuffer = zlib.deflateSync(options.dataToImport)
                                     }
                                     
-                                    tocToImport.data = options.dataToImport;
+                                    tocToImport.data = importFileBuffer;
                                     
+                                    const newDataOutputTempPath = path.join(options.temporaryFolderPath, `${options.index}.NEW.temp`);
                                     const transformer = new ASTTransformer(parserToUse.file);
-                                    
-                                    const readable = new Readable();
-                                    readable._read = () => {};
-                                    
-                                    const buffersToReadIn = options.astBuffers.pop();
-                                    
-                                    buffersToReadIn.forEach((buf) => {
-                                        readable.push(buf);
-                                    });
-                                    
-                                    readable.push(null);
-                                    
-                                    let newDataToImportBuffers = [];
 
                                     if (options.reverseNodeHierarchy.length > 2) {
                                         pipeline(
-                                            readable,
+                                            fs.createReadStream(path.join(options.temporaryFolderPath, `${options.index}.temp`)),
                                             transformer,
-                                            new Writable({
-                                                write(chunk, enc, cb) {
-                                                    newDataToImportBuffers.push(chunk);
-                                                    cb();
-                                                }
-                                            }),
+                                            fs.createWriteStream(newDataOutputTempPath),
                                             (err) => {
                                                 if (err) {
                                                     reject(err);
                                                 }
 
                                                 resolve(importNode({
+                                                    index: options.index - 1,
                                                     reverseNodeHierarchy: options.reverseNodeHierarchy.slice(1),
-                                                    dataToImport: Buffer.concat(newDataToImportBuffers),
-                                                    astBuffers: options.astBuffers,
+                                                    dataToImport: newDataOutputTempPath,
+                                                    temporaryFolderPath: options.temporaryFolderPath,
                                                     astParserFiles: options.astParserFiles
                                                 }));
                                             }
@@ -453,7 +599,7 @@ astService.importNodeFromStream = (stream, options) => {
                                     }
                                     else {
                                         pipeline(
-                                            readable,
+                                            fs.createReadStream(path.join(options.temporaryFolderPath, `${options.index}.temp`)),
                                             transformer,
                                             fs.createWriteStream(astService.activeASTFiles[options.reverseNodeHierarchy[1]].absolutePath),
                                             (err) => {
@@ -466,8 +612,9 @@ astService.importNodeFromStream = (stream, options) => {
                                         )
                                     }
                                 });
-                            };
+                            
                         });
+                    }
                 }
             }
         );

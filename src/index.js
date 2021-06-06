@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const api = require('./server/api');
 const log = require('./util/logger');
@@ -12,6 +13,35 @@ if (isDev) {
 
 let mainWindow;
 
+const makeUserDataFolderPromise = new Promise((resolve, reject) => {
+    fs.promises.readdir(app.getPath('userData'))
+        .then(() => {
+            // folder exists
+            resolve();
+        })
+        .catch((err) => {
+            // folder does not exist, create it
+            fs.promises.mkdir(app.getPath('userData'))
+                .then(() => {
+                    resolve();
+                })
+                .catch((err) => {
+                    log.error(err);
+                    reject(err);
+                })
+        })
+});
+
+app.on('window-all-closed', (event) => {
+    fs.promises.rmdir(app.getPath('userData'), { force: true, recursive: true })
+        .then(() => {
+            app.quit();
+        })
+        .catch((err) => {
+            log.error(err);
+        })
+});
+
 app.once('ready', () => {
     mainWindow = new BrowserWindow({
         height: 600,
@@ -19,7 +49,18 @@ app.once('ready', () => {
         icon: path.join(__dirname, './client/img/icon.ico'),
         menu: menu
     });
-    mainWindow.loadFile(path.join(__dirname, './client/main/dist/index.html'));
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
 
     api.initializeListeners(mainWindow);
+
+    Promise.all([makeUserDataFolderPromise])
+        .then(() => {
+            mainWindow.loadFile(path.join(__dirname, './client/main/dist/index.html'));
+        })
+        .catch((err) => {
+            log.error(err);
+        });
 });

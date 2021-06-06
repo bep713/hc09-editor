@@ -6,17 +6,23 @@
             <Button label="Help" class="p-button-outlined" @click="onHelpClicked" />
         </div>
         <div class="file-viewer-wrapper">
-            <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
-                @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"
-                :filter="true" filterMode="lenient"></Tree>
-
-            <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
-                :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" />
+            <Splitter layout="horizontal">
+                <SplitterPanel :size="25">
+                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
+                        @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"
+                        :filter="true" filterMode="lenient" scrollHeight="flex"></Tree>
+                </SplitterPanel>
+                <SplitterPanel :size="75">
+                    <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
+                        :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" 
+                        @page="onDataTableChange" @filter="onDataTableChange" @sort="onDataTableChange" />
+                </SplitterPanel>
+            </Splitter>
         </div>
         <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true">
             <div class="help-wrapper">
                 <p>
-                    To use this editor, you MUST have the game files on your PC somehow. The game file root folder will have a PS3_GAME and 
+                    To use this editor, you MUST have the game files on your PC somehow. The game root folder will have a PS3_GAME and 
                     PS3_UPDATE folder inside of it. You want to select the folder containing these two.
                 </p>
                 <p>
@@ -43,6 +49,8 @@ import Tree from 'primevue/tree';
 import Toast from 'primevue/toast';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
+import Splitter from 'primevue/splitter';
+import SplitterPanel from 'primevue/splitterpanel';
 import ProgressSpinner from 'primevue/progressspinner';
 
 import GameFilesEditorDataTable from '../components/GameFilesEditorDataTable';
@@ -71,6 +79,8 @@ export default {
         Toast,
         Button,
         Dialog,
+        Splitter,
+        SplitterPanel,
         ProgressSpinner,
         GameFilesEditorDataTable
     },
@@ -94,6 +104,8 @@ export default {
         });
 
         messageUI.on('get-ast-child-nodes', (_, res) => {
+            console.log(res);
+            
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -122,7 +134,8 @@ export default {
                 treeModelRoot.data.loaded = res._node.data.loaded;
 
                 if (this.setTableBaseModelAfterLoad) {
-                    this.onNodeSelect(treeModelRoot);
+                    const nodeToSelect = this.getChildNodeFromRoot(treeModelRoot, this.selectedNode.key);
+                    this.onNodeSelect(nodeToSelect);
                     this.isDataViewerLoading = false;
                 }
             }
@@ -190,6 +203,15 @@ export default {
                 });
             }
         });
+
+        messageUI.on('get-image-previews', (_, res) => {
+            if (!res._success) {
+
+            }
+            else {
+                console.log(res);
+            }
+        })
     },
     computed: {
         tableModel() {
@@ -201,7 +223,9 @@ export default {
                     'size': childNode.data.size,
                     'sizeUnformatted': childNode.data.sizeUnformatted,
                     'type': childNode.data.type,
-                    'description': childNode.data.description
+                    'description': childNode.data.description,
+                    'isCompressed': childNode.data.isCompressed,
+                    'previewLocation': childNode.data.previewLocation
                 }
             });
         },
@@ -210,6 +234,10 @@ export default {
         }
     },
     data() {
+        // astModel - contains everything: ASTs, DBs, etc. - complete hierarchy
+        // treeModel - contains only AST hierarchy
+        // tableBaseModel - contains only the selected AST & direct children
+
         return {
             astModel: [],
             treeModel: [],
@@ -257,11 +285,24 @@ export default {
         },
 
         onNodeExpand(node) {
-            console.log(node);
-
             if (!node.data || !node.data.loaded) {
                 this.isTreeViewerLoading = true;
-                messageUI.send('get-ast-child-nodes', node);
+
+                let rootNode = node;
+                const keyIsChild = node.key.indexOf('_') > -1;
+        
+                if (keyIsChild) {
+                    const rootKey = node.key.split('_')[0];
+
+                    rootNode = this.astModel.find((astNode) => {
+                        return astNode.key === rootKey;
+                    });
+                }
+
+                messageUI.send('get-ast-child-nodes', {
+                    rootNode: rootNode,
+                    nodeToLoad: node
+                });
             }
         },
         
@@ -272,7 +313,22 @@ export default {
                 this.isTreeViewerLoading = true;
                 this.isDataViewerLoading = true;
                 this.setTableBaseModelAfterLoad = true;
-                messageUI.send('get-ast-child-nodes', node);
+
+                let rootNode = node;
+                const keyIsChild = node.key.indexOf('_') > -1;
+        
+                if (keyIsChild) {
+                    const rootKey = node.key.split('_')[0];
+
+                    rootNode = this.astModel.find((astNode) => {
+                        return astNode.key === rootKey;
+                    });
+                }
+
+                messageUI.send('get-ast-child-nodes', {
+                    rootNode: rootNode,
+                    nodeToLoad: node
+                });
             }
             else {
                 if (node.children) {
@@ -364,6 +420,37 @@ export default {
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onDataTableChange(event) {
+            messageUI.send('get-image-previews', {
+                first: event.first,
+                last: event.first + event.rows
+            });
+        },
+
+        getChildNodeFromRoot(rootNode, keyToFind) {
+            console.log(keyToFind);
+            const keyIsChild = keyToFind.indexOf('_') > -1;
+        
+            if (keyIsChild) {
+                const nodesToFind = keyToFind.split('_');
+    
+                if (nodesToFind.length > 1) {
+                    let workingNode = rootNode;
+    
+                    nodesToFind.slice(1).forEach((nodeKey) => {
+                        workingNode = workingNode.children.find((childNode) => {
+                            return childNode.key == `${workingNode.key}_${nodeKey}`;
+                        });
+                    });
+    
+                    return workingNode;
+                }
+            }
+            else {
+                return rootNode;
+            }
         }
     },
     unmounted() {
@@ -371,6 +458,7 @@ export default {
         messageUI.removeAllListeners('get-ast-child-nodes');
         messageUI.removeAllListeners('export-ast-node');
         messageUI.removeAllListeners('import-ast-node');
+        messageUI.removeAllListeners('get-image-previews');
     }
 }
 </script>
@@ -396,11 +484,21 @@ export default {
 
     .file-viewer-wrapper {
         height: calc(100vh - 110px);
-        display: flex;
     }
 
     .p-tree {
+        height: 100%;
         overflow: auto;
-        flex-basis: 27%;
+    }
+
+    .p-splitter {
+        height: 100%;
+        border: none;
+    }
+</style>
+
+<style lang="scss">
+    .p-tree > .p-tree-container {
+        height: calc(-40px + -0.5rem + 100%);
     }
 </style>

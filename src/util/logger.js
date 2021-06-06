@@ -8,11 +8,16 @@ const logger = winston.createLogger({
         winston.format.timestamp({
             format: 'MM-DD-YYYY HH:mm:ss'
         }),
+        winston.format.errors({ stack: true }),
         winston.format.printf((info) => {
             let message = info.message;
 
             if (typeof info.message === 'object') {
-                message = `${info.level}: ${JSON.stringify(info.message, null, 3)}`;
+                message = `${JSON.stringify(info.message, null, 3)}`;
+            }
+
+            if (info.durationMs) {
+                message += ` ${info.durationMs}ms`;
             }
 
             info.message = `${info.timestamp} ${info.level}: ${message}`;

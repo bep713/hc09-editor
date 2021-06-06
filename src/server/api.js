@@ -1,3 +1,4 @@
+const path = require('path');
 const log = require('../util/logger');
 const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('./model/CareerInfo');
@@ -78,29 +79,89 @@ module.exports.initializeListeners = function (mainWindow) {
             });
     });
 
-    ipcMain.on('get-ast-child-nodes', (_, node) => {
-        astEditorService.readAST(node.data.absolutePath, true)
-            .then((astFile) => {
-                try {
-                    astEditorService.activeASTFiles[node.key] = {
-                        'absolutePath': node.data.absolutePath,
-                        'file': astFile
+    ipcMain.on('get-ast-child-nodes', (_, options) => {
+        log.profile('get child nodes');
+
+        const rootNode = options.rootNode;
+        const node = options.nodeToLoad;
+
+        if (node.data.type === 'Root AST') {
+            astEditorService.readAST(node.data.absolutePath, false, app.getPath('userData'))
+                .then((astFile) => {
+                    try {
+                        astEditorService.activeASTFiles[node.key] = {
+                            'absolutePath': node.data.absolutePath,
+                            'file': astFile,
+                            'tempFolderId': astFile.id
+                        };
+    
+                        rootNode.data.loaded = true;
+                        rootNode.children = astEditorService.parseArchiveFileList(astFile, rootNode);
+                        const response = new EventResponse(true);
+                        response._node = rootNode;
+                        log.profile('get child nodes');
+    
+                        mainWindow.webContents.send('get-ast-child-nodes', response);
+                    }
+                    catch (err) {
+                        sendErrorResponse(err, 'get-ast-child-nodes');
+                    }
+                })
+                .catch((err) => {
+                    sendErrorResponse(err, 'get-ast-child-nodes');
+                })
+        }
+        else {
+            astEditorService.readChildAST(node, false, app.getPath('userData'))
+                .then((astFile) => {
+                    const nodeToSet = getNodeToSetFromRoot(rootNode, node.key);
+                    
+                    rootNode.data.loaded = true;
+                    nodeToSet.data.loaded = true;
+
+                    const dummyRootNode = {
+                        'key': rootNode.key,
+                        'children': astEditorService.parseArchiveFileList(astFile, rootNode)
                     };
 
-                    node.data.loaded = true;
-                    node.children = astEditorService.parseArchiveFileList(astFile, node);
+                    const nodeInMappedFiles = getNodeToSetFromRoot(dummyRootNode, node.key);
+                    nodeToSet.children = nodeInMappedFiles.children;
+
                     const response = new EventResponse(true);
-                    response._node = node;
+                    response._node = rootNode;
+                    log.profile('get child nodes');
+
                     mainWindow.webContents.send('get-ast-child-nodes', response);
-                }
-                catch (err) {
+                })
+                .catch((err) => {
                     sendErrorResponse(err, 'get-ast-child-nodes');
-                }
-            })
-            .catch((err) => {
-                sendErrorResponse(err, 'get-ast-child-nodes');
-            })
+                })
+        }
+
     });
+
+    function getNodeToSetFromRoot(rootNode, keyToFind) {
+        const keyIsChild = keyToFind.indexOf('_') > -1;
+        
+        if (keyIsChild) {
+            const nodesToFind = keyToFind.split('_');
+
+            if (nodesToFind.length > 1) {
+                let workingNode = rootNode;
+
+                nodesToFind.slice(1).forEach((nodeKey) => {
+                    workingNode = workingNode.children.find((childNode) => {
+                        return childNode.key == `${workingNode.key}_${nodeKey}`;
+                    });
+                });
+
+                return workingNode;
+            }
+        }
+        else {
+            return rootNode;
+        }
+    };
 
     ipcMain.on('export-ast-node', (_, data) => {
         astEditorService.exportNode(data.filePath, data.node, data.shouldDecompressFile)
@@ -124,6 +185,10 @@ module.exports.initializeListeners = function (mainWindow) {
             .catch((err) => {
                 sendErrorResponse(err, 'import-ast-node');
             })
+    });
+
+    ipcMain.on('get-image-previews', (_, data) => {
+        
     });
 
     function sendErrorResponse(err, event) {

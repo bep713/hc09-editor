@@ -15,13 +15,16 @@
     "@babel/preset-env": "^7.14.0",
     "@vue/compiler-sfc": "^3.0.11",
     "babel-loader": "^8.2.2",
+    "chai": "^4.3.4",
     "chokidar": "^3.5.1",
     "copy-node-modules": "^1.1.1",
     "css-loader": "^5.2.4",
     "deskgap": "^0.2.0",
     "gulp": "^4.0.2",
     "gulp-sass": "^4.1.0",
+    "proxyquire": "^2.1.3",
     "sass-loader": "^11.0.1",
+    "sinon": "^11.1.1",
     "vue-html-loader": "^1.2.4",
     "vue-loader": "^16.2.0",
     "vue-style-loader": "^4.1.3",
@@ -30,12 +33,16 @@
     "webpack-dev-server": "^3.11.2"
   },
   "dependencies": {
+    "dxt-js": "0.0.3",
     "madden-file-tools": "^2.4.5",
     "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",
     "primevue": "^3.3.5",
+    "sharp": "^0.28.3",
+    "uuid": "^8.3.2",
     "vue": "^3.0.11",
     "vue-router": "^4.0.6",
-    "winston": "^3.3.3"
+    "winston": "^3.3.3",
+    "workerpool": "^6.1.4"
   }
 }
