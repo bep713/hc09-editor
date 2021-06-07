@@ -1,0 +1,148 @@
+; Matt This is an optional configuration file which allows specific run-time
+;  behaviors.  The file is processed by GameConfig.cpp and relies on the
+;  following line format:
+;
+;  VariableName=VariableValue
+;
+; VariableName must be understood by GameConfig.cpp in order for any game
+;  side effect to be realized.
+;
+; Configuration variables that are not overridden by a configuration file
+;  should maintain their default value for the game's purposes.
+
+[Characters]
+DontLoadPlayers=0
+DontLoadPlayerFaces=0
+DontLoadCoachesAndRefs=0
+DontVaryPlayerScale=0
+;UseSingleFace=0                ; [bool] 0 = Use default faces.
+                                ; 1 = *All* players use the default generic face, or the "ForcedPlayerHead" below if specified.
+                                ; This happens even if they are supposed to have a unique face
+;ForcedPlayerHead=1_M_S_006     ; [string] name of a big file in our data directory, minus the "_big.ast" portion
+NumHighResFaces=35
+
+[Audio]
+DisableSoundThread=0
+EnableSoundPlayerLogging=0
+EnableSoundHeapValidation=0
+DisableMusic=0
+
+[Environments]
+DontLoadStadium=0
+DontRenderStadium=0
+DontLoadParticles=0
+DontLoadCrowd=0
+DontLoadField=0
+RecordRenderObjState=0
+DontDrawSeats=0
+DontDraw3dGrass=0
+PlayNowDay=31
+PlayNowMonth=8
+PlayNowYear=2006
+EnableLightingEditor=0
+
+[Effects]
+DynamicShadows=0
+CoverageShadows=0
+StencilShadows=0
+StencilVolumes=0
+CrowdRandomSeed=198
+
+[Franchise]
+StartInPreSeason=0
+DeveloperSimSpeed=0
+RandomizeTeamList=0
+
+[Game Features]
+EnablePlayCallStats=1
+EnableWrongAssignments=1
+EnableAgendaBonus=1
+
+[Shortcuts]
+SkipToPlaycall=0
+SkipKickoff=0
+JumpToMiniGames=0
+SkipIntroVideos=0
+
+[QuickLaunchSettings]
+;QuickLaunchEnabled=0               ; [bool] Enable/Disable QuickLaunch (Launch Directly Into Game)
+;QuickLaunchStartDemoMode=0         ; [bool] QuickLaunch the game into Demo Mode [CPU vs. CPU]
+;QuickLaunchDemoModeAllRandom=0     ; [bool] QuickLaunch into Demo Mode Using All Random Settings (teams and stadiums included).
+;QuickLaunchHomeTeam=GB             ; [string] Specify Home Team (CHI, DAL, PHI, GB, SF, etc.)
+;QuickLaunchAwayTeam=CHI            ; [string] Specify Away Team (CHI, DAL, PHI, GB, SF, etc.)
+;QuickLaunchStadium=GB              ; [string] Specify the Team Stadium to play in. (CHI, DAL, PHI, GB, etc.)
+;QuickLaunchMode=PRACTICE           ; [string] Optional.  Only valid value for now is PRACTICE to start in practice mod e.
+;QuickLaunchPracticeType=NORMAL     ; [string] Optional.  Valid values are NORMAL, OFFENSE_ONLY, KICKOFF. Default is NORMAL.
+;QuickLaunchAwayTeamIsPlayerOne=0   ; [bool] Optional.  Only for practice mode. If true, player one will control the away team instead of the home team.
+
+[Convenience]
+DisableDefaultDebugSpew=0
+ShowAptTraces=0                     ; [bool] override for disabling all apt-trace output to tty
+ShowAdapterTraces=0                 ; [bool] override to display traces for script-to-code adapter functions.
+AllowIonDebugger=0                  ; [bool] set to 1 to enable ION's actionscript debugging tool
+ShowTestMenus=0                     ; [bool] set to 1 to enable Test and Debug menu items
+DontUseApt3D=0
+DisableRumble=0
+StayOnPressStart=1
+LogAssertsInCPUVsCPUGame=0
+DisableHangDetector=0
+ValidateInitShutdownMatch=0         ; [bool] set to 1 to verify that calls to Init are matched with calls to Shutdown.
+
+[CPUvsCPU]
+;CPUvsCPUHomeTeam=
+;CPUvsCPUAwayTeam=
+;CPUvsCPUStadiumID=
+;CPUvsCPUQtrLength=1
+;CPUvsCPUWeather=1
+;CPUvsCPUTemperature
+;CPUvsCPUClouds=2
+;CPUvsCPUPrecipitation=3
+
+[Online]
+NoDesyncBotLogic=0          ; [bool] bot-build only, whether to use bot logic
+DesyncStackCorruption=0     ; [bool] desync-build, whether to enable the stack corruptor (tm)
+DisableHiccupDetection=0    ; [bool] if your sim frame rate drops low enough it an cause issue with the hiccup detector.
+EnableDisconButton=0        ; [bool] Enable the Simulate Disconnect key combo
+DisablePatchDownload=0
+JuiceServerIP=10.8.92.5
+JuiceServerPort=31001
+
+[XmlFiles]
+ManagerXMLFile=AnimMgrProjects
+AnimScriptXMLFile=AnimScriptProject
+AnimDebugInfoXMLFile=Ant Project Report
+EntityXMLFile=GameplayDemoEntities
+EntityFEXMLFile=GameplayDemoEntitiesFE
+
+[Miscellaneous]
+IntentTestBed=0
+DisableDebugCameraPitchReverse=0
+DisableReveal=0
+EnableScreenshot=0
+DrawHackIndicators=0
+EnableProgressLogging=0
+ForceGameScenario=0
+ExtraReplayPercentage=35
+SaveInput=                  ; string
+ForcedCoachHead=            ; string
+
+[FileLogger]
+FLOG_CAL_TTY=1
+
+FLOG_CAL=0
+FLOG_RES=0
+FLOG_PLAYER=0
+FLOG_FEVENT=0
+FLOG_TMRDMP=0
+FLOG_PLYRGR=0
+FLOG_PLRDMP=0
+FLOG_TEAM=0
+FLOG_STAT=0
+FLOG_HLTINJ=0
+FLOG_P_PROG=0
+FLOG_STAEVA=0
+FLOG_TRADE=0
+FLOG_APRCHG=0
+
+..
+

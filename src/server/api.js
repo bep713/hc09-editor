@@ -86,15 +86,9 @@ module.exports.initializeListeners = function (mainWindow) {
         const node = options.nodeToLoad;
 
         if (node.data.type === 'Root AST') {
-            astEditorService.readAST(node.data.absolutePath, false, app.getPath('userData'))
+            astEditorService.readAST(node.data.absolutePath, false, app.getPath('userData'), node.key)
                 .then((astFile) => {
                     try {
-                        astEditorService.activeASTFiles[node.key] = {
-                            'absolutePath': node.data.absolutePath,
-                            'file': astFile,
-                            'tempFolderId': astFile.id
-                        };
-    
                         rootNode.data.loaded = true;
                         rootNode.children = astEditorService.parseArchiveFileList(astFile, rootNode);
                         const response = new EventResponse(true);
@@ -114,6 +108,7 @@ module.exports.initializeListeners = function (mainWindow) {
         else {
             astEditorService.readChildAST(node, false, app.getPath('userData'))
                 .then((astFile) => {
+                    log.info('after read child');
                     const nodeToSet = getNodeToSetFromRoot(rootNode, node.key);
                     
                     rootNode.data.loaded = true;
@@ -185,10 +180,6 @@ module.exports.initializeListeners = function (mainWindow) {
             .catch((err) => {
                 sendErrorResponse(err, 'import-ast-node');
             })
-    });
-
-    ipcMain.on('get-image-previews', (_, data) => {
-        
     });
 
     function sendErrorResponse(err, event) {

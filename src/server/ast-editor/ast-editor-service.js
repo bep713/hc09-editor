@@ -11,9 +11,6 @@ const ASTParser = require('madden-file-tools/streams/ASTParser');
 const DDSParser = require('madden-file-tools/streams/DDSParser');
 const { pipeline, Transform, Readable, Writable } = require('stream');
 const ASTTransformer = require('madden-file-tools/streams/ASTTransformer');
-// const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-const workerpool = require('workerpool');
-const pool = workerpool.pool(__dirname + '/read-compressed-file.js');
 
 let astService = {};
 
@@ -85,9 +82,20 @@ astService.openRootFolder = (rootPath) => {
     })
 };
 
-astService.readAST = (astAbsolutePath, recursiveRead, extractPreviews) => {
-    const stream = fs.createReadStream(astAbsolutePath);
-    return readASTFromStream(stream, recursiveRead, extractPreviews);
+astService.readAST = (astAbsolutePath, recursiveRead, extractPreviews, key) => {
+    return new Promise((resolve, reject) => {
+        const stream = fs.createReadStream(astAbsolutePath);
+        readASTFromStream(stream, recursiveRead, extractPreviews)
+            .then((astFile) => {
+                astService.activeASTFiles[key] = {
+                    'absolutePath': astAbsolutePath,
+                    'file': astFile,
+                    'tempFolderId': astFile.id
+                };
+
+                resolve(astFile);
+            })
+    });
 };
 
 astService.readChildAST = (childNode, recursiveRead, temporaryOutputBasePath) => {
@@ -107,7 +115,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
         const parser = new ASTParser();
         parser.extract = true;
 
-        parser.file.id = uuid();    
+        parser.file.id = uuid();
 
         parser.on('compressed-file', (astData) => {
             if (!readPathAfterRoot || readPathAfterRoot.length === 0 || (readPathAfterRoot && astData.toc.index == readPathAfterRoot[0])) {
@@ -434,7 +442,7 @@ astService.exportNodeFromStream = (stream, options) => {
                         astData.stream
                     ];
 
-                    if (options.shouldDecompressFile) {
+                    if (options.shouldDecompressFile && astData.toc.isCompressed) {
                         pipes = [
                             astData.stream,
                             zlib.createInflate()
@@ -475,43 +483,45 @@ astService.importNode = (filePath, node) => {
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
         const rootStream = fs.createReadStream(rootASTFile.absolutePath);
 
-        const tempFolder = path.join(app.getPath('userData'), uuid());
-        fs.promises.mkdir(tempFolder)
-            .then(() => {
+        // const tempFolder = path.join(app.getPath('userData'), uuid());
+        // fs.promises.mkdir(tempFolder)
+            // .then(() => {
                 const options = {
                     'originalNodeHierarchy': nodeHierarchy,
                     'currentNodeHierarchy': nodeHierarchy.slice(1),
                     'importFilePath': filePath,
-                    'temporaryFolderPath': tempFolder,
+                    'temporaryStreams': [],
                     'astParserFiles': []
                 };
                 
                 astService.importNodeFromStream(rootStream, options)
                     .then(() => {
-                        fs.promises.rmdir(tempFolder, { force: true, recursive: true })
-                            .then(() => {
+                        // fs.promises.rmdir(tempFolder, { force: true, recursive: true })
+                            // .then(() => {
                                 resolve();
-                            })
-                            .catch((err) => {
-                                log.error('There was a problem removing the temporary folder: ' + err);
-                                resolve();
-                            });
+                            // })
+                            // .catch((err) => {
+                                // log.error('There was a problem removing the temporary folder: ' + err);
+                                // resolve();
+                            // });
                     });
             })
             .catch((err) => {
                 log.error(err);
             })
 
-    });
+    // });
 };
 
 astService.importNodeFromStream = (stream, options) => {
     return new Promise((resolve, reject) => {
         let compressedStreamToReadNext = null;
         const newParser = new ASTParser();
+        let tempStream = new Readable();
+        tempStream._read = () => {};
 
         const index = options.originalNodeHierarchy.length - options.currentNodeHierarchy.length;
-        const writeStream = fs.createWriteStream(path.join(options.temporaryFolderPath, `${index}.temp`));
+        // const writeStream = fs.createWriteStream(path.join(options.temporaryFolderPath, `${index}.temp`));
 
         if (options.currentNodeHierarchy.length > 1) {
             newParser.on('compressed-file', (astData) => {
@@ -525,7 +535,7 @@ astService.importNodeFromStream = (stream, options) => {
             stream,
             new Transform({
                 transform(chunk, enc, cb) {
-                    writeStream.write(chunk);
+                    tempStream.push(chunk);
                     this.push(chunk);
                     cb();
                 }
@@ -536,8 +546,10 @@ astService.importNodeFromStream = (stream, options) => {
                     reject(err);
                 }
 
-                writeStream.end();
+                // writeStream.end();
+                tempStream.push(null);
 
+                options.temporaryStreams.push(tempStream);
                 options.astParserFiles.push(newParser);
 
                 if (options.currentNodeHierarchy.length > 1) {
@@ -545,11 +557,11 @@ astService.importNodeFromStream = (stream, options) => {
                         originalNodeHierarchy: options.originalNodeHierarchy,
                         currentNodeHierarchy: options.currentNodeHierarchy.slice(1),
                         importFilePath: options.importFilePath,
-                        temporaryFolderPath: options.temporaryFolderPath,
+                        temporaryStreams: options.temporaryStreams,
                         astParserFiles: options.astParserFiles
                     }));
                 }
-                else {                  
+                else {
                     const reverseNodeHierarchy = options.originalNodeHierarchy.reverse();
 
                     resolve(importNode({
@@ -557,41 +569,58 @@ astService.importNodeFromStream = (stream, options) => {
                         reverseNodeHierarchy: reverseNodeHierarchy,
                         dataToImport: options.importFilePath,
                         astParserFiles: options.astParserFiles,
-                        temporaryFolderPath: options.temporaryFolderPath
+                        temporaryStreams: options.temporaryStreams
                     }))
 
                     function importNode(options) {
                         return new Promise((resolve, reject) => {
-                            fs.promises.readFile(options.dataToImport)
-                                .then((importFileBuffer) => {
+                            if (options.dataToImport instanceof Buffer) {
+                                resolve(postReadInputImportNode(options.dataToImport));
+                            }
+                            else {
+                                fs.promises.readFile(options.dataToImport)
+                                    .then((importFileBuffer) => {
+                                        resolve(postReadInputImportNode(importFileBuffer));
+                                    });
+                            }
+                                
+                            function postReadInputImportNode(importFileBuffer) {
+                                return new Promise((resolve, reject) => {
+                                    const tempStreamToUse = options.temporaryStreams.pop();
                                     const parserToUse = options.astParserFiles.pop();
                                     const tocToImport = parserToUse.file.tocs.find((toc) => { return toc.index == options.reverseNodeHierarchy[0] });
                                     const newDataNeedsCompressed = tocToImport.uncompressedSize.length > 0 && tocToImport.uncompressedSizeInt > 0
                                     
                                     if (newDataNeedsCompressed) {
-                                        importFileBuffer = zlib.deflateSync(options.dataToImport)
+                                        importFileBuffer = zlib.deflateSync(importFileBuffer)
                                     }
                                     
                                     tocToImport.data = importFileBuffer;
                                     
-                                    const newDataOutputTempPath = path.join(options.temporaryFolderPath, `${options.index}.NEW.temp`);
+                                    // const newDataOutputTempPath = path.join(options.temporaryFolderPath, `${options.index}.NEW.temp`);
+                                    let newDataTempBuffers = [];
                                     const transformer = new ASTTransformer(parserToUse.file);
-
+    
                                     if (options.reverseNodeHierarchy.length > 2) {
                                         pipeline(
-                                            fs.createReadStream(path.join(options.temporaryFolderPath, `${options.index}.temp`)),
+                                            tempStreamToUse,
                                             transformer,
-                                            fs.createWriteStream(newDataOutputTempPath),
+                                            new Transform({
+                                                transform(chunk, enc, cb) {
+                                                    newDataTempBuffers.push(chunk);
+                                                    cb();
+                                                }
+                                            }),
                                             (err) => {
                                                 if (err) {
                                                     reject(err);
                                                 }
-
+    
                                                 resolve(importNode({
                                                     index: options.index - 1,
                                                     reverseNodeHierarchy: options.reverseNodeHierarchy.slice(1),
-                                                    dataToImport: newDataOutputTempPath,
-                                                    temporaryFolderPath: options.temporaryFolderPath,
+                                                    dataToImport: Buffer.concat(newDataTempBuffers),
+                                                    temporaryStreams: options.temporaryStreams,
                                                     astParserFiles: options.astParserFiles
                                                 }));
                                             }
@@ -599,19 +628,20 @@ astService.importNodeFromStream = (stream, options) => {
                                     }
                                     else {
                                         pipeline(
-                                            fs.createReadStream(path.join(options.temporaryFolderPath, `${options.index}.temp`)),
+                                            tempStreamToUse,
                                             transformer,
                                             fs.createWriteStream(astService.activeASTFiles[options.reverseNodeHierarchy[1]].absolutePath),
                                             (err) => {
                                                 if (err) {
                                                     reject(err);
                                                 }
-
+    
                                                 resolve();
                                             }
                                         )
                                     }
                                 });
+                            };
                             
                         });
                     }

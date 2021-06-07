@@ -1,5 +1,7 @@
+const fs = require('fs');
 const path = require('path');
 const sinon = require('sinon');
+const crypto = require('crypto');
 const expect = require('chai').expect;
 const proxyquire = require('proxyquire').noCallThru();
 
@@ -13,14 +15,16 @@ const astEditorService = proxyquire('../../src/server/ast-editor/ast-editor-serv
     'deskgap': deskgapMock
 });
 
+const testDataRoot = path.join(__dirname, '../data');
+const hc09BootPath = 'D:\\Media\\Games\\NFL Head Coach 09 [U] [BLUS-30128]\\PS3_GAME\\USRDIR\\qkl_boot.ast';
+const hc09StreamPath = 'D:\\Media\\Games\\NFL Head Coach 09 [U] [BLUS-30128]\\PS3_GAME\\USRDIR\\qkl_stream.ast';
+
 describe('ast editor service unit tests', () => {
     let result = null;
 
     describe('read ast (non-recursive)', () => {
-        const astPath = 'D:\\Media\\Games\\NFL Head Coach 09 [U] [BLUS-30128]\\PS3_GAME\\USRDIR\\qkl_boot.ast';
-
         before((done) => {
-            astEditorService.readAST(astPath, false, true)
+            astEditorService.readAST(hc09BootPath, false, true, 0)
                 .then((astFile) => {
                     result = astFile;
                     done();
@@ -32,16 +36,47 @@ describe('ast editor service unit tests', () => {
         it('does not read children if recursive read is set to false', () => {
             expect(result.tocs[0xe].file).to.be.undefined;
         });
+
+        describe('can read a child AST after reading in the root', () => {
+            let childAst = null;
+
+            before((done) => {
+                astEditorService.readAST(hc09BootPath, false, true, 0)
+                    .then(() => {                    
+                        astEditorService.readChildAST({
+                            'key': '0_672'
+                        }, false, true)
+                            .then((astFile) => {
+                                childAst = astFile.tocs[672].file;
+                                done();
+                            })
+                    })
+            });
+
+            it('DDS', () => {
+                const firstIndex = childAst.tocs.find((toc) => { return toc.index === 0; });
+                expect(firstIndex.fileExtension).to.eql('dds');
+            });
+
+            it('DAT', () => {
+                const secondIndex = childAst.tocs.find((toc) => { return toc.index === 1; });
+                expect(secondIndex.fileExtension).to.eql('dat');
+            });
+
+            it('APT', () => {
+                const thirdIndex = childAst.tocs.find((toc) => { return toc.index === 2; });
+                expect(thirdIndex.fileExtension).to.eql('apt');
+            });
+        });
     });
 
     describe('read ast (recursive)', () => {
-        const astPath = 'D:\\Media\\Games\\NFL Head Coach 09 [U] [BLUS-30128]\\PS3_GAME\\USRDIR\\qkl_boot.ast';
         let result = null;
 
         before(function(done) {
             this.timeout(10000);
 
-            astEditorService.readAST(astPath, true, true)
+            astEditorService.readAST(hc09BootPath, true, true, 0)
                 .then((astFile) => {
                     result = astFile;
                     done();
@@ -75,11 +110,8 @@ describe('ast editor service unit tests', () => {
     });
 
     describe('export', () => {
-        const astPath = 'D:\\Media\\Games\\NFL Head Coach 09 [U] [BLUS-30128]\\PS3_GAME\\USRDIR\\qkl_boot.ast';
-        const exportPathRoot = path.join(__dirname, '../data');
-
         before((done) => {
-            astEditorService.readAST(astPath, false, true)
+            astEditorService.readAST(hc09BootPath, false, true, 0)
                 .then((astFile) => {
                     result = astFile;
                     done();
@@ -87,13 +119,167 @@ describe('ast editor service unit tests', () => {
         });
         
         it('can export a file in the root AST', (done) => {
-            astEditorService.exportNode(path.join(exportPathRoot, 'exportRootAST.dat'), {
+            astEditorService.exportNode(path.join(testDataRoot, 'export/244-compare.dat'), {
                 'key': '0_244'
             }, true)
                 .then(() => {
+                    const pristineFile = fs.readFileSync(path.join(testDataRoot, 'export/244-pristine.dat'))
+                    const compareFile = fs.readFileSync(path.join(testDataRoot, 'export/244-compare.dat'))
+
+                    testBufferHashes(compareFile, pristineFile);
                     done();
                 })
-        })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+
+        it('can export a file within many AST layers', (done) => {
+            astEditorService.exportNode(path.join(testDataRoot, 'export/689_4-compare.dds'), {
+                'key': '0_689_4'
+            }, true)
+                .then(() => {
+                    const pristineFile = fs.readFileSync(path.join(testDataRoot, 'export/689_4-pristine.dds'))
+                    const compareFile = fs.readFileSync(path.join(testDataRoot, 'export/689_4-compare.dds'))
+
+                    testBufferHashes(compareFile, pristineFile);
+                    done();
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+
+        it('can export a file from the original AST after reading in a second AST', function (done) {
+            this.timeout(10000);
+
+            astEditorService.readAST(hc09StreamPath, false, true, 1)
+                .then(() => {
+                    astEditorService.exportNode(path.join(testDataRoot, 'export/689_4-compare-2.dds'), {
+                        'key': '0_689_4'
+                    }, true)
+                        .then(() => {
+                            const pristineFile = fs.readFileSync(path.join(testDataRoot, 'export/689_4-pristine.dds'))
+                            const compareFile = fs.readFileSync(path.join(testDataRoot, 'export/689_4-compare-2.dds'))
+        
+                            testBufferHashes(compareFile, pristineFile);
+                            done();
+                        })
+                        .catch((err) => {
+                            done(err);
+                        })
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+
+        it('will not attempt to decompress if the file is not compressed to begin with', (done) => {
+            astEditorService.exportNode(path.join(testDataRoot, 'export/66_1-compare.rsf'), {
+                'key': '1_66_1'
+            }, true)
+                .then(() => {
+                    const pristineFile = fs.readFileSync(path.join(testDataRoot, 'export/66_1-pristine.rsf'))
+                    const compareFile = fs.readFileSync(path.join(testDataRoot, 'export/66_1-compare.rsf'))
+
+                    testBufferHashes(compareFile, pristineFile);
+                    done();
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+
+        it('can export an uncompressed version of a file', (done) => {
+            astEditorService.exportNode(path.join(testDataRoot, 'export/689_4-compare-uncompressed.dat'), {
+                'key': '0_689_4'
+            }, false)
+                .then(() => {
+                    const compareFile = fs.readFileSync(path.join(testDataRoot, 'export/689_4-compare-uncompressed.dat'))
+                    expect(compareFile[0] === 0x79 && compareFile[1] === 0xDA);
+                    done();
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+    });
+
+    describe('import', () => {
+        const importDataRoot = path.join(testDataRoot, 'import');
+
+        before((done) => {
+            astEditorService.readAST(hc09BootPath, false, true, 0)
+                .then((astFile) => {
+                    result = astFile;
+                    done();
+                })
+        });
+
+        it('can import a file to the root', function (done) {
+            this.timeout(10000);
+
+            const pathToNodeToImport = path.join(importDataRoot, 'configModified.dat');
+            const pathToExport = path.join(importDataRoot, '0_0-compare.dat');
+
+            astEditorService.importNode(pathToNodeToImport, {
+                'key': '0_0'
+            })
+                .then(() => {
+                    expect(astEditorService.activeASTFiles[0].file.tocs.length).to.equal(727);
+
+                    astEditorService.exportNode(pathToExport, {
+                        'key': '0_0'
+                    }, true)
+                        .then(() => {
+                            const pristineFile = fs.readFileSync(pathToNodeToImport);
+                            const compareFile = fs.readFileSync(pathToExport);
+
+                            testBufferHashes(compareFile, pristineFile);
+                            done();
+                        })
+                        .catch((err) => {
+                            done(err);
+                        })
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+
+        it('can import a file nested in the ASTs', function (done) {
+            this.timeout(10000);
+
+            astEditorService.readChildAST({
+                'key': '0_670'
+            }, false, true)
+                .then(() => {
+                    const pathToNodeToImport = path.join(importDataRoot, 'brownsLogoModified.dds');
+                    const pathToExport = path.join(importDataRoot, '0_670_13-compare.dds');
+
+                    astEditorService.importNode(pathToNodeToImport, {
+                        'key': '0_670_13'
+                    })
+                        .then(() => {
+                            astEditorService.exportNode(pathToExport, {
+                                'key': '0_670_13'
+                            }, true)
+                            .then(() => {
+                                    const pristineFile = fs.readFileSync(pathToNodeToImport);
+                                    const compareFile = fs.readFileSync(pathToExport);
+
+                                    testBufferHashes(compareFile, pristineFile);
+                                    done();
+                                })
+                                .catch((err) => {
+                                    done(err);
+                                })
+                        })
+                        .catch((err) => {
+                            done(err);
+                        })
+                })
+        });
     });
 
     function baseBootASTTests() {
@@ -146,3 +332,13 @@ describe('ast editor service unit tests', () => {
         });
     }
 });
+
+function testBufferHashes(bufferToTest, bufferToCompare) {
+    let testHash = crypto.createHash('sha1');
+    testHash.update(bufferToTest);
+
+    let compareHash = crypto.createHash('sha1');
+    compareHash.update(bufferToCompare);
+
+    expect(testHash.digest('hex')).to.eql(compareHash.digest('hex'));
+};

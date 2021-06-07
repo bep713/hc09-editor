@@ -70,6 +70,7 @@ const exportFileFilters = [
     { name: 'RSF', extensions: ['rsf'] },
     { name: 'SCHL', extensions: ['schl'] },
     { name: 'XML', extensions: ['xml'] },
+    { name: 'Any', extensions: ['*'] }
 ];
 
 export default {
@@ -203,15 +204,6 @@ export default {
                 });
             }
         });
-
-        messageUI.on('get-image-previews', (_, res) => {
-            if (!res._success) {
-
-            }
-            else {
-                console.log(res);
-            }
-        })
     },
     computed: {
         tableModel() {
@@ -399,7 +391,8 @@ export default {
             
             const relevantFilters = exportFileFilters.filter((filter) => {
                 return filter.extensions.find((extension) => {
-                    return extension.toLowerCase() === selection.type.toLowerCase();
+                    return extension === '*' || 
+                        extension.toLowerCase() === selection.type.toLowerCase();
                 });
             });
 
@@ -423,10 +416,10 @@ export default {
         },
 
         onDataTableChange(event) {
-            messageUI.send('get-image-previews', {
-                first: event.first,
-                last: event.first + event.rows
-            });
+            // messageUI.send('get-image-previews', {
+            //     first: event.first,
+            //     last: event.first + event.rows
+            // });
         },
 
         getChildNodeFromRoot(rootNode, keyToFind) {
@@ -458,7 +451,6 @@ export default {
         messageUI.removeAllListeners('get-ast-child-nodes');
         messageUI.removeAllListeners('export-ast-node');
         messageUI.removeAllListeners('import-ast-node');
-        messageUI.removeAllListeners('get-image-previews');
     }
 }
 </script>
