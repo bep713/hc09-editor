@@ -3,9 +3,10 @@
         <div class="filter-buttons-wrapper">
             <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
             <Button label="Select HC09 root folder" @click="onSelectRootFolderClicked" />
+            <Button label="Open single AST" class="p-button-outlined" @click="onOpenSingleASTClicked" />
             <Button label="Help" class="p-button-outlined" @click="onHelpClicked" />
         </div>
-        <div class="file-viewer-wrapper">
+        <div class="file-viewer-wrapper" v-if="fileIsSelected">
             <Splitter layout="horizontal">
                 <SplitterPanel :size="25">
                     <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
@@ -19,7 +20,10 @@
                 </SplitterPanel>
             </Splitter>
         </div>
-        <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true">
+
+        <RecentFilesList v-else :recentFiles="recentFiles" @recentFileClicked="onRecentFileClicked" @recentFileRemoved="onRecentFileRemoved" />
+
+        <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true" :closeOnEscape="true" :dismissableMask="true">
             <div class="help-wrapper">
                 <p>
                     To use this editor, you MUST have the game files on your PC somehow. The game root folder will have a PS3_GAME and 
@@ -36,9 +40,7 @@
             </div>
         </Dialog>
 
-        <Dialog :modal="true" :closable="false" v-model:visible="longRunningActionIsRunning">
-            <ProgressSpinner />
-        </Dialog>
+        <ProgressDisplay :value="progressValue" :message="progressMessage" v-if="longRunningActionIsRunning" />
 
         <Toast position="bottom-right" />
     </div>
@@ -51,8 +53,9 @@ import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
-import ProgressSpinner from 'primevue/progressspinner';
 
+import ProgressDisplay from '../components/ProgressDisplay';
+import RecentFilesList from '../components/RecentFilesList';
 import GameFilesEditorDataTable from '../components/GameFilesEditorDataTable';
 
 const asyncNode = window.deskgap.asyncNode;
@@ -82,7 +85,8 @@ export default {
         Dialog,
         Splitter,
         SplitterPanel,
-        ProgressSpinner,
+        ProgressDisplay,
+        RecentFilesList,
         GameFilesEditorDataTable
     },
     created() {
@@ -92,6 +96,24 @@ export default {
                     severity: 'error', 
                     summary: 'Invalid folder', 
                     detail: 'The folder that you have selected is not a valid root HC09 folder. Please try again.', 
+                    life: 4000
+                });
+
+                this.astModel = null;
+            }
+            else {
+                this.$toast.removeAllGroups();
+                this.astModel = res._rootFiles;
+                this.treeModel = JSON.parse(JSON.stringify(res._rootFiles));
+            }
+        });
+
+        messageUI.on('open-single-ast', (_, res) => {
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Invalid AST file', 
+                    detail: 'The file that you have selected is not a valid AST file. Please try again.', 
                     life: 4000
                 });
 
@@ -138,6 +160,7 @@ export default {
                     const nodeToSelect = this.getChildNodeFromRoot(treeModelRoot, this.selectedNode.key);
                     this.onNodeSelect(nodeToSelect);
                     this.isDataViewerLoading = false;
+                    this.setTableBaseModelAfterLoad = false;
                 }
             }
 
@@ -204,6 +227,17 @@ export default {
                 });
             }
         });
+
+        messageUI.on('set-progress-value', (_, res) => {
+            this.progressValue = res.value;
+            this.progressMessage = res.message;
+        });
+
+        messageUI.on('get-recent-files', (_, res) => {
+            this.recentFiles = res.results;
+        });
+
+        messageUI.send('get-recent-files');
     },
     computed: {
         tableModel() {
@@ -221,8 +255,13 @@ export default {
                 }
             });
         },
+
         longRunningActionIsRunning() {
             return this.isExporting || this.isImporting;
+        },
+
+        fileIsSelected() {
+            return this.treeModel.length > 0;
         }
     },
     data() {
@@ -234,11 +273,14 @@ export default {
             astModel: [],
             treeModel: [],
             showHelp: false,
+            recentFiles: [],
             expandedRows: [],
+            progressValue: 0,
             selectedKey: null,
             selectedNode: null,
             isImporting: false,
             isExporting: false,
+            progressMessage: '',
             tableBaseModel: null,
             rootFolderPath: null,
             expandedChildRows: [],
@@ -263,9 +305,27 @@ export default {
                 console.log(err);
             })
         },
+        
+        onOpenSingleASTClicked() {
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select AST file'
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePaths) {
+                    this.onFileSelectedInDialog(result.filePaths[0]);
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
+        },
 
         onFolderSelectedInDialog(path) {
             messageUI.send('open-root-folder', path);
+        },
+
+        onFileSelectedInDialog(path) {
+            messageUI.send('open-single-ast', path);
         },
 
         onHelpClicked() {
@@ -444,6 +504,19 @@ export default {
             else {
                 return rootNode;
             }
+        },
+
+        onRecentFileClicked(file) {            
+            if (file.type === 'root') {
+                this.onFolderSelectedInDialog(file.path);
+            }
+            else {
+                this.onFileSelectedInDialog(file.path);
+            }
+        },
+
+        onRecentFileRemoved(file) {
+            messageUI.send('remove-recent-file', file);
         }
     },
     unmounted() {
@@ -451,6 +524,9 @@ export default {
         messageUI.removeAllListeners('get-ast-child-nodes');
         messageUI.removeAllListeners('export-ast-node');
         messageUI.removeAllListeners('import-ast-node');
+        messageUI.removeAllListeners('open-single-ast');
+        messageUI.removeAllListeners('set-progress-value');
+        messageUI.removeAllListeners('get-recent-files');
     }
 }
 </script>

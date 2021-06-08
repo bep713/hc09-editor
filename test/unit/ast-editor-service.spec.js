@@ -282,6 +282,38 @@ describe('ast editor service unit tests', () => {
         });
     });
 
+    describe('can open a single AST file', () => {
+        it('method exists', () => {
+            expect(astEditorService.openSingleAST).to.not.be.null;
+        });
+
+        it('returns expected result', (done) => {
+            astEditorService.openSingleAST(hc09BootPath)
+                .then((astData) => {
+                    expect(astData).to.eql({
+                        'key': '0',
+                        'label': 'qkl_boot.ast',
+                        'data': {
+                            'index': 0,
+                            'name': 'qkl_boot.ast',
+                            'sizeUnformatted': 344664880,
+                            'size': '345 MB',
+                            'type': 'Root AST',
+                            'description': '',
+                            'absolutePath': hc09BootPath,
+                            'loaded': false
+                        },
+                        'leaf': false
+                    });
+
+                    done();
+                })
+                .catch((err) => {
+                    done(err);
+                })
+        });
+    });
+
     function baseBootASTTests() {
         it('result contains all expected tocs', () => {
             expect(result.tocs.length).to.equal(727);

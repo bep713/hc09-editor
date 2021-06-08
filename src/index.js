@@ -33,13 +33,7 @@ const makeUserDataFolderPromise = new Promise((resolve, reject) => {
 });
 
 app.on('window-all-closed', (event) => {
-    fs.promises.rmdir(app.getPath('userData'), { force: true, recursive: true })
-        .then(() => {
-            app.quit();
-        })
-        .catch((err) => {
-            log.error(err);
-        })
+    app.quit();
 });
 
 app.once('ready', () => {

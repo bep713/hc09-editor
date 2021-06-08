@@ -5,7 +5,7 @@
                 <HomeHeader :version="version"/>
                 <div class="button-container">
                     <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
-                    <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-cog" @click="onEditGameFilesClicked" />
+                    <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-file" @click="onEditGameFilesClicked" />
                 </div>
             </div>
         </div>
@@ -68,6 +68,10 @@ export default {
 
         onEditGameFilesClicked: function () {
             this.$router.push('/game-files/home');
+        },
+
+        onEditSettingsClicked: function () {
+            this.$router.push('/settings/home');
         }
     },
     unmounted() {

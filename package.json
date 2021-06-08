@@ -1,6 +1,6 @@
 {
   "name": "hc09-editor",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "",
   "main": "src/index.js",
   "scripts": {
@@ -34,6 +34,7 @@
   "dependencies": {
     "dxt-js": "0.0.3",
     "madden-file-tools": "^2.4.5",
+    "moment": "^2.29.1",
     "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",
     "primevue": "^3.3.5",

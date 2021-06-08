@@ -3,10 +3,13 @@ const log = require('../util/logger');
 const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('./model/CareerInfo');
 const EventResponse = require('./model/EventResponse');
+const recentFileService = require('./recentFilesService');
 const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
 const astEditorService = require('./ast-editor/ast-editor-service');
 
 let helper;
+
+recentFileService.initialize();
 
 module.exports.initializeListeners = function (mainWindow) {
     ipcMain.on('get-version', () => {
@@ -69,6 +72,8 @@ module.exports.initializeListeners = function (mainWindow) {
                         const response = new EventResponse(true);
                         response._rootFiles = rootFiles;
                         mainWindow.webContents.send('open-root-folder', response);
+
+                        recentFileService.addFile(path, 'root');
                     })
                     .catch((err) => {
                         sendErrorResponse(err, 'open-root-folder');
@@ -76,6 +81,20 @@ module.exports.initializeListeners = function (mainWindow) {
             })
             .catch((err) => {
                 sendErrorResponse(err, 'open-root-folder');                
+            });
+    });
+
+    ipcMain.on('open-single-ast', (_, path) => {
+        astEditorService.openSingleAST(path)
+            .then((astFile) => {
+                const response = new EventResponse(true);
+                response._rootFiles = [astFile];
+                mainWindow.webContents.send('open-single-ast', response);
+
+                recentFileService.addFile(path, 'single');
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'open-single-ast');
             });
     });
 
@@ -180,6 +199,22 @@ module.exports.initializeListeners = function (mainWindow) {
             .catch((err) => {
                 sendErrorResponse(err, 'import-ast-node');
             })
+    });
+
+    ipcMain.on('get-recent-files', (_, data) => {
+        const response = new EventResponse(true);
+        response.results = recentFileService.getRecentFiles();
+        mainWindow.webContents.send('get-recent-files', response);
+    });
+
+    ipcMain.on('remove-recent-file', (_, data) => {
+        recentFileService.removeFile(data.path);
+    });
+
+    astEditorService.eventEmitter.on('progress', (val) => {
+        const response = new EventResponse(true);
+        response.value = val;
+        mainWindow.webContents.send('set-progress-value', response);
     });
 
     function sendErrorResponse(err, event) {

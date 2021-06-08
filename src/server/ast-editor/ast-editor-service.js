@@ -7,6 +7,7 @@ const { app } = require('deskgap');
 const { v4: uuid } = require('uuid');
 const log = require('../../util/logger');
 const prettyBytes = require('pretty-bytes');
+const EventEmitter = require('events').EventEmitter;
 const ASTParser = require('madden-file-tools/streams/ASTParser');
 const DDSParser = require('madden-file-tools/streams/DDSParser');
 const { pipeline, Transform, Readable, Writable } = require('stream');
@@ -15,6 +16,7 @@ const ASTTransformer = require('madden-file-tools/streams/ASTTransformer');
 let astService = {};
 
 astService.activeASTFiles = {};
+astService.eventEmitter = new EventEmitter();
 
 astService.validateRootFolder = (rootPath) => {
     return new Promise((resolve, reject) => {
@@ -43,29 +45,7 @@ astService.openRootFolder = (rootPath) => {
                 const rootASTFileStatPromises = fileNames.filter((fileName) => {
                     return fileName.indexOf('.ast') > -1;
                 }).map((fileName, index) => {
-                    return new Promise((resolve, reject) => {
-                        fs.promises.stat(path.join(absoluteRootPath, fileName))
-                            .then((stats) => {
-                                resolve({
-                                    'key': `${index}`,
-                                    'label': fileName,
-                                    'data': {
-                                        'index': index,
-                                        'name': fileName,
-                                        'sizeUnformatted': stats.size ? stats.size : 0,
-                                        'size': prettyBytes(stats.size),
-                                        'type': 'Root AST',
-                                        'description': '',
-                                        'absolutePath': path.join(absoluteRootPath, fileName),
-                                        'loaded': false
-                                    },
-                                    'leaf': false
-                                });
-                            })
-                            .catch((err) => {
-                                reject(err);
-                            });
-                        });
+                    return astService.openSingleAST(path.join(absoluteRootPath, fileName), fileName, index);
                 });
 
                 Promise.all(rootASTFileStatPromises)
@@ -80,6 +60,41 @@ astService.openRootFolder = (rootPath) => {
                 reject(err);
             });
     })
+};
+
+astService.openSingleAST = (astPath, fileName, index) => {
+    return new Promise((resolve, reject) => {
+        if (!index) {
+            index = Object.keys(astService.activeASTFiles).length;
+        }
+    
+        if (!fileName) {
+            const splitPaths = astPath.split('\\');
+            fileName = splitPaths[splitPaths.length-1];
+        }
+
+        fs.promises.stat(astPath)
+            .then((stats) => {
+                resolve({
+                    'key': `${index}`,
+                    'label': fileName,
+                    'data': {
+                        'index': index,
+                        'name': fileName,
+                        'sizeUnformatted': stats.size ? stats.size : 0,
+                        'size': prettyBytes(stats.size),
+                        'type': 'Root AST',
+                        'description': '',
+                        'absolutePath': astPath,
+                        'loaded': false
+                    },
+                    'leaf': false
+                });
+            })
+            .catch((err) => {
+                reject(err);
+            });
+    });
 };
 
 astService.readAST = (astAbsolutePath, recursiveRead, extractPreviews, key) => {
@@ -465,6 +480,8 @@ astService.exportNodeFromStream = (stream, options) => {
             }
         });
 
+        log.profile('read node');
+
         pipeline(
             stream,
             newParser,
@@ -472,6 +489,8 @@ astService.exportNodeFromStream = (stream, options) => {
                 if (err) {
                     reject(err);
                 }
+
+                log.profile('read node');
             }
         );
     });
@@ -521,6 +540,8 @@ astService.importNodeFromStream = (stream, options) => {
         tempStream._read = () => {};
 
         const index = options.originalNodeHierarchy.length - options.currentNodeHierarchy.length;
+        astService.eventEmitter.emit('progress', (index / ((options.originalNodeHierarchy.length - 1) * 2)) * 100);
+
         // const writeStream = fs.createWriteStream(path.join(options.temporaryFolderPath, `${index}.temp`));
 
         if (options.currentNodeHierarchy.length > 1) {
@@ -566,6 +587,7 @@ astService.importNodeFromStream = (stream, options) => {
 
                     resolve(importNode({
                         index: index,
+                        total: options.originalNodeHierarchy.length - 1,
                         reverseNodeHierarchy: reverseNodeHierarchy,
                         dataToImport: options.importFilePath,
                         astParserFiles: options.astParserFiles,
@@ -574,6 +596,8 @@ astService.importNodeFromStream = (stream, options) => {
 
                     function importNode(options) {
                         return new Promise((resolve, reject) => {
+                            astService.eventEmitter.emit('progress', (((options.total - options.index) + options.total) / (options.total * 2)) * 100);
+
                             if (options.dataToImport instanceof Buffer) {
                                 resolve(postReadInputImportNode(options.dataToImport));
                             }
@@ -618,6 +642,7 @@ astService.importNodeFromStream = (stream, options) => {
     
                                                 resolve(importNode({
                                                     index: options.index - 1,
+                                                    total: options.total,
                                                     reverseNodeHierarchy: options.reverseNodeHierarchy.slice(1),
                                                     dataToImport: Buffer.concat(newDataTempBuffers),
                                                     temporaryStreams: options.temporaryStreams,
@@ -635,7 +660,8 @@ astService.importNodeFromStream = (stream, options) => {
                                                 if (err) {
                                                     reject(err);
                                                 }
-    
+
+                                                astService.eventEmitter.emit('progress', 100);
                                                 resolve();
                                             }
                                         )
