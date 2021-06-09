@@ -136,12 +136,14 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
             if (!readPathAfterRoot || readPathAfterRoot.length === 0 || (readPathAfterRoot && astData.toc.index == readPathAfterRoot[0])) {
                 readASTCompressedFilePromises.push(new Promise((resolve, reject) => {
                     let fileExtension = '?';
+                    let subtype = null;
     
                     const fileExtensionPicker = new Transform({
                         transform(chunk, enc, cb) {
                             if (fileExtension === '?') {
                                 if (chunk[0] === 0x44 && chunk[1] === 0x44 && chunk[2] === 0x53) {
                                     fileExtension = 'dds';
+                                    subtype = getCompressionSubtype(chunk);
                                 }
                                 else if (chunk[0] === 0x44 && chunk[1] === 0x42) {
                                     fileExtension = 'db';
@@ -163,6 +165,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                 }
                                 else if (chunk[0] === 0x70 && chunk[1] === 0x33 && chunk[2] === 0x52) {
                                     fileExtension = 'p3r';
+                                    subtype = getCompressionSubtype(chunk);
                                 }
                                 else if (chunk[0] === 0x41 && chunk[1] === 0x70 && chunk[2] === 0x74) {
                                     fileExtension = 'apt';
@@ -186,6 +189,19 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                 
                             this.push(chunk);
                             cb();
+
+                            function getCompressionSubtype(chunk) {                                
+                                switch(chunk[0x57]) {
+                                    case 0x31:
+                                        return 'DXT1';
+                                    case 0x33:
+                                        return 'DXT3';
+                                    case 0x35:
+                                        return 'DXT5';
+                                    default:
+                                        return 'NONE';
+                                }
+                            }
                         }
                     });
     
@@ -239,102 +255,21 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             newASTStream.push(null);
     
                             astData.toc.fileExtension = fileExtension;
-
+                            astData.toc.subtype = subtype;
+                            
                             let extractPreviewPromise = new Promise((resolve, reject) => {
-                                if (extractPreviews && fileExtension === 'dds') {
+                                if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
                                     tempStoreStream.push(null);
-                                    
-                                    const ddsParser = new DDSParser();
-                                    let imageData;
-                                    
-                                    pipeline(
-                                        tempStoreStream,
-                                        ddsParser,
-                                        new Transform({
-                                            transform(chunk, enc, cb) {
-                                                if (this.ddsData === undefined) { 
-                                                    this.ddsData = chunk;
-                                                }
-                                                else { 
-                                                    this.ddsData = Buffer.concat([this.ddsData, chunk]);
-                                                }
-        
-                                                cb();
-                                            },
-                                            flush(cb) {
-                                                if (Object.keys(ddsParser._file.header).length > 0) {
-                                                    let flag = null;
-                                                    
-                                                    switch(ddsParser._file.header.format) {
-                                                        case 'dxt1':
-                                                            flag = dxt.flags.DXT1;
-                                                            break;
-                                                        case 'dxt3':
-                                                            flag = dxt.flags.DXT3;
-                                                            break;
-                                                        case 'dxt5':
-                                                            flag = dxt.flags.DXT5;
-                                                            break;
-                                                        default:
-                                                            flag = 'uncompressed';
-                                                            break;
-                                                    }
-        
-                                                    if (flag === 'uncompressed') {
-                                                        // Transform DDS data from BGRA to RGBA
-                                                        for (let i = ddsParser._file.header.images[0].offset; i < this.ddsData.length; i += 4) {
-                                                            const temp = this.ddsData[i];
-                                                            this.ddsData[i] = this.ddsData[i+2];
-                                                            this.ddsData[i+2] = temp;
-                                                        }
-        
-                                                        imageData = this.ddsData.slice(ddsParser._file.header.images[0].offset);
-                                                    }
-                                                    else {
-                                                        const compressedBuffer = new Uint8Array(this.ddsData.slice(ddsParser._file.header.images[0].offset));
-                                                        imageData = Buffer.from(dxt.decompress(compressedBuffer, ddsParser._file.header.width, ddsParser._file.header.height, flag));
-                                                    }
-                                                }
-        
-                                                cb();
-                                            }
-                                        }),
-                                        (err) => {
-                                            if (err) {
-                                                log.error(err);
-                                                reject(err);
-                                            }
-        
-                                            if (imageData) {
-                                                try {
-                                                    sharp(imageData, {
-                                                        'raw': {
-                                                            'width': ddsParser._file.header.width,
-                                                            'height': ddsParser._file.header.height,
-                                                            'channels': 4
-                                                        }
-                                                    })
-                                                        .webp()
-                                                        .toBuffer()
-                                                            .then((buf) => {
-                                                                astData.toc.preview = `data:image/webp;base64,${buf.toString('base64')}`;
-                                                                resolve();
-                                                            })
-                                                            .catch((err) => {
-                                                                log.error(err);
-                                                                reject(err);
-                                                            })
-                                                }
-                                                catch (err) {
-                                                    log.error(err);
-                                                    reject(err);
-                                                }
-                                            }
-                                            else {
-                                                resolve();
-                                            }
-                                        }
-                                    )
+                                    astService.extractPreviewImageFromStream(tempStoreStream)
+                                        .then((preview) => {
+                                            astData.toc.preview = preview;
+                                            resolve();
+                                        })
+                                        .catch((err) => {
+                                            log.error(err);
+                                            astData.toc.preview = '';
+                                            resolve();
+                                        });
                                 }
                                 else {
                                     tempStoreStream = null;
@@ -343,7 +278,9 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                 }
                             });
 
-                            extractPreviewPromise.then(() => {
+                            extractPreviewPromise.catch((err) => {
+                                log.error(err); 
+                            }).finally(() => {
                                 if (readPathAfterRoot && readPathAfterRoot.length > 0) {
                                     readASTFromStream(newASTStream, recursiveRead, extractPreviews, readPathAfterRoot.slice(1))
                                         .then((file) => {
@@ -406,7 +343,7 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
                 'name': `${toc.index.toString('16')} - ${toc.startPositionInt.toString('16').padStart(8, '0')}`,
                 'sizeUnformatted': toc.fileSizeInt ? toc.fileSizeInt : 0,
                 'size': prettyBytes(toc.fileSizeInt),
-                'type': toc.fileExtension ? toc.fileExtension.toUpperCase() : '?',
+                'type': toc.fileExtension ? toc.subtype ? `${toc.fileExtension.toUpperCase()} (${toc.subtype.toUpperCase()})` : toc.fileExtension.toUpperCase() : '?',
                 'description': toc.descriptionString,
                 'loaded': toc.fileExtension === 'ast' ? (toc.file !== null && toc.file !== undefined) : true,
                 'isCompressed': toc.uncompressedSize.length > 0 ? toc.uncompressedSizeInt > 0 : false,
@@ -423,7 +360,7 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
     })
 };
 
-astService.exportNode = (exportPath, node, shouldDecompressFile) => {
+astService.exportNode = (exportPath, node, shouldDecompressFile, convertOptions) => {
     return new Promise((resolve, reject) => {
         const nodeHierarchy = node.key.split('_');
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
@@ -431,8 +368,10 @@ astService.exportNode = (exportPath, node, shouldDecompressFile) => {
 
         const options = {
             'nodeHierarchy': nodeHierarchy.slice(1),
+            'total': nodeHierarchy.length,
             'exportPath': exportPath,
-            'shouldDecompressFile': shouldDecompressFile
+            'shouldDecompressFile': shouldDecompressFile,
+            'convertOptions': convertOptions
         };
         
         resolve(astService.exportNodeFromStream(rootStream, options));
@@ -445,11 +384,15 @@ astService.exportNodeFromStream = (stream, options) => {
 
         newParser.on('compressed-file', (astData) => {
             if (astData.toc.index == options.nodeHierarchy[0]) {
+                astService.eventEmitter.emit('progress', Math.round(((options.total - options.nodeHierarchy.length) / options.total) * 100));
+
                 if (options.nodeHierarchy.length > 1) {
                     resolve(astService.exportNodeFromStream(astData.stream, {
+                        total: options.total,
                         nodeHierarchy: options.nodeHierarchy.slice(1),
                         exportPath: options.exportPath,
-                        shouldDecompressFile: options.shouldDecompressFile
+                        shouldDecompressFile: options.shouldDecompressFile,
+                        convertOptions: options.convertOptions
                     }));
                 }
                 else {
@@ -464,6 +407,25 @@ astService.exportNodeFromStream = (stream, options) => {
                         ]
                     }
 
+                    if (options.convertOptions) {
+                        if (options.convertOptions.from === 'P3R' && options.convertOptions.to === 'DDS') {
+                            let numberBytesRead = 0;
+    
+                            pipes.push(new Transform({
+                                transform(chunk, enc, cb) {
+                                    if (numberBytesRead === 0) {
+                                        chunk.writeUInt32BE(0x44445320, 0)
+                                    }
+    
+                                    numberBytesRead += chunk.length;
+    
+                                    this.push(chunk);
+                                    cb();
+                                }
+                            }))
+                        }
+                    }
+
                     pipeline(
                         ...pipes,
                         fs.createWriteStream(options.exportPath),
@@ -472,6 +434,7 @@ astService.exportNodeFromStream = (stream, options) => {
                                 reject(err);
                             }
                             else {
+                                astService.eventEmitter.emit('progress', 100);
                                 resolve();
                             }
                         }
@@ -496,7 +459,7 @@ astService.exportNodeFromStream = (stream, options) => {
     });
 };
 
-astService.importNode = (filePath, node) => {
+astService.importNode = (filePath, node, convertOptions) => {
     return new Promise((resolve, reject) => {
         const nodeHierarchy = node.key.split('_');
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
@@ -506,11 +469,13 @@ astService.importNode = (filePath, node) => {
         // fs.promises.mkdir(tempFolder)
             // .then(() => {
                 const options = {
+                    'keyToImport': node.key,
                     'originalNodeHierarchy': nodeHierarchy,
                     'currentNodeHierarchy': nodeHierarchy.slice(1),
                     'importFilePath': filePath,
                     'temporaryStreams': [],
-                    'astParserFiles': []
+                    'astParserFiles': [],
+                    'convertOptions': convertOptions
                 };
                 
                 astService.importNodeFromStream(rootStream, options)
@@ -575,11 +540,13 @@ astService.importNodeFromStream = (stream, options) => {
 
                 if (options.currentNodeHierarchy.length > 1) {
                     resolve(astService.importNodeFromStream(compressedStreamToReadNext, {
+                        keyToImport: options.keyToImport,
                         originalNodeHierarchy: options.originalNodeHierarchy,
                         currentNodeHierarchy: options.currentNodeHierarchy.slice(1),
                         importFilePath: options.importFilePath,
                         temporaryStreams: options.temporaryStreams,
-                        astParserFiles: options.astParserFiles
+                        astParserFiles: options.astParserFiles,
+                        convertOptions: options.convertOptions
                     }));
                 }
                 else {
@@ -588,10 +555,12 @@ astService.importNodeFromStream = (stream, options) => {
                     resolve(importNode({
                         index: index,
                         total: options.originalNodeHierarchy.length - 1,
+                        keyToImport: options.keyToImport,
                         reverseNodeHierarchy: reverseNodeHierarchy,
                         dataToImport: options.importFilePath,
                         astParserFiles: options.astParserFiles,
-                        temporaryStreams: options.temporaryStreams
+                        temporaryStreams: options.temporaryStreams,
+                        convertOptions: options.convertOptions
                     }))
 
                     function importNode(options) {
@@ -604,6 +573,32 @@ astService.importNodeFromStream = (stream, options) => {
                             else {
                                 fs.promises.readFile(options.dataToImport)
                                     .then((importFileBuffer) => {
+                                        if (options.convertOptions) {
+                                            if (options.convertOptions.from === 'DDS' && options.convertOptions.to === 'P3R') {                        
+                                                importFileBuffer.writeUInt32BE(0x70335202, 0);
+                                            }
+                                        }
+
+                                        const importExtension = path.extname(options.dataToImport);
+
+                                        if (importExtension === '.p3r' || importExtension === '.dds') {
+                                            let tempReadStream = new Readable();
+                                            tempReadStream._read = () => {};
+                                            tempReadStream.push(importFileBuffer);
+                                            tempReadStream.push(null);
+
+                                            astService.extractPreviewImageFromStream(tempReadStream)
+                                                .then((preview) => {
+                                                    astService.eventEmitter.emit('preview', {
+                                                        'key': options.keyToImport,
+                                                        'preview': preview
+                                                    });
+                                                })
+                                                .catch((err) => {
+                                                    console.log(err);
+                                                })
+                                        }
+
                                         resolve(postReadInputImportNode(importFileBuffer));
                                     });
                             }
@@ -643,10 +638,12 @@ astService.importNodeFromStream = (stream, options) => {
                                                 resolve(importNode({
                                                     index: options.index - 1,
                                                     total: options.total,
+                                                    keyToImport: options.keyToImport,
                                                     reverseNodeHierarchy: options.reverseNodeHierarchy.slice(1),
                                                     dataToImport: Buffer.concat(newDataTempBuffers),
                                                     temporaryStreams: options.temporaryStreams,
-                                                    astParserFiles: options.astParserFiles
+                                                    astParserFiles: options.astParserFiles,
+                                                    convertOptions: options.convertOptions
                                                 }));
                                             }
                                         )
@@ -676,5 +673,104 @@ astService.importNodeFromStream = (stream, options) => {
         );
     });
 };
+
+astService.extractPreviewImageFromStream = (nodeStream) => {
+    return new Promise((resolve, reject) => {
+        const ddsParser = new DDSParser();
+
+        let imageData;
+        
+        pipeline(
+            nodeStream,
+            ddsParser,
+            new Transform({
+                transform(chunk, enc, cb) {
+                    if (this.ddsData === undefined) { 
+                        this.ddsData = chunk;
+                    }
+                    else { 
+                        this.ddsData = Buffer.concat([this.ddsData, chunk]);
+                    }
+
+                    cb();
+                },
+                flush(cb) {
+                    if (Object.keys(ddsParser._file.header).length > 0) {
+                        let flag = null;
+                        
+                        switch(ddsParser._file.header.format) {
+                            case 'dxt1':
+                                flag = dxt.flags.DXT1;
+                                break;
+                            case 'dxt3':
+                                flag = dxt.flags.DXT3;
+                                break;
+                            case 'dxt5':
+                                flag = dxt.flags.DXT5;
+                                break;
+                            default:
+                                flag = 'uncompressed';
+                                break;
+                        }
+
+                        if (flag === 'uncompressed') {
+                            // Transform DDS data from BGRA to RGBA
+                            for (let i = ddsParser._file.header.images[0].offset; i < this.ddsData.length; i += 4) {
+                                const temp = this.ddsData[i];
+                                this.ddsData[i] = this.ddsData[i+2];
+                                this.ddsData[i+2] = temp;
+                            }
+
+                            imageData = this.ddsData.slice(ddsParser._file.header.images[0].offset);
+                        }
+                        else {
+                            const compressedBuffer = new Uint8Array(this.ddsData.slice(ddsParser._file.header.images[0].offset));
+                            imageData = Buffer.from(dxt.decompress(compressedBuffer, ddsParser._file.header.width, ddsParser._file.header.height, flag));
+                        }
+                    }
+
+                    cb();
+                }
+            }),
+            (err) => {
+                if (err) {
+                    log.error(err);
+                    reject(err);
+                }
+                else {
+                    
+                    if (imageData) {
+                        try {
+                            sharp(imageData, {
+                                'raw': {
+                                    'width': ddsParser._file.header.width,
+                                    'height': ddsParser._file.header.height,
+                                    'channels': 4
+                                }
+                            })
+                                .webp()
+                                .toBuffer()
+                                    .then((buf) => {
+                                        resolve(`data:image/webp;base64,${buf.toString('base64')}`);
+                                    })
+                                    .catch((err) => {
+                                        log.error(err);
+                                        reject(err);
+                                    })
+                        }
+                        catch (err) {
+                            log.error(err);
+                            reject(err);
+                        }
+                    }
+                    else {
+                        resolve();
+                    }
+                }
+
+            }
+        )
+    });
+}
 
 module.exports = astService;

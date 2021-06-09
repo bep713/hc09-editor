@@ -6,16 +6,16 @@
             <Button label="Open single AST" class="p-button-outlined" @click="onOpenSingleASTClicked" />
             <Button label="Help" class="p-button-outlined" @click="onHelpClicked" />
         </div>
-        <div class="file-viewer-wrapper" v-if="fileIsSelected">
+        <div class="file-viewer-wrapper" v-if="treeModel">
             <Splitter layout="horizontal">
                 <SplitterPanel :size="25">
-                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey"
+                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedKey" :expandedKeys="expandedKeys"
                         @nodeSelect="onNodeSelect" @nodeExpand="onNodeExpand" :loading="isTreeViewerLoading"
-                        :filter="true" filterMode="lenient" scrollHeight="flex"></Tree>
+                        :filter="true" filterMode="lenient"></Tree>
                 </SplitterPanel>
                 <SplitterPanel :size="75">
                     <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
-                        :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" 
+                        :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" @open-node="onOpenNode"
                         @page="onDataTableChange" @filter="onDataTableChange" @sort="onDataTableChange" />
                 </SplitterPanel>
             </Splitter>
@@ -225,6 +225,8 @@ export default {
                     detail: `The selected file has been imported successfully.`, 
                     life: 4000
                 });
+                
+
             }
         });
 
@@ -235,6 +237,16 @@ export default {
 
         messageUI.on('get-recent-files', (_, res) => {
             this.recentFiles = res.results;
+        });
+
+        messageUI.on('preview', (_, res) => {
+            const keys = res.data.key.split('_');
+            const rootNode = this.astModel.find((root) => {
+                return root.key === keys[0];
+            });
+
+            const node = this.getChildNodeFromRoot(rootNode, res.data.key);
+            node.data.previewLocation = res.data.preview;
         });
 
         messageUI.send('get-recent-files');
@@ -258,10 +270,6 @@ export default {
 
         longRunningActionIsRunning() {
             return this.isExporting || this.isImporting;
-        },
-
-        fileIsSelected() {
-            return this.treeModel.length > 0;
         }
     },
     data() {
@@ -271,10 +279,11 @@ export default {
 
         return {
             astModel: [],
-            treeModel: [],
+            treeModel: null,
             showHelp: false,
             recentFiles: [],
             expandedRows: [],
+            expandedKeys: {},
             progressValue: 0,
             selectedKey: null,
             selectedNode: null,
@@ -418,11 +427,20 @@ export default {
         onExportNode(options) {
             const selection = options.selection;
 
-            const relevantFilters = exportFileFilters.filter((filter) => {
-                return filter.extensions.find((extension) => {
-                    return extension.toLowerCase() === selection.type.toLowerCase();
+            let relevantFilters;
+
+            if (options.convertOptions) {
+                relevantFilters = exportFileFilters.filter((filter) => {
+                    return filter.name === options.convertOptions.to;
                 });
-            });
+            }
+            else {
+                relevantFilters = exportFileFilters.filter((filter) => {
+                    return filter.extensions.find((extension) => {
+                        return selection.type.toLowerCase().indexOf(extension.toLowerCase()) > -1;
+                    });
+                });
+            }
 
             asyncNode.require('deskgap').then(function(deskgap) {
                 return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
@@ -438,7 +456,8 @@ export default {
                     messageUI.send('export-ast-node', {
                         filePath: filePath,
                         node: selection,
-                        shouldDecompressFile: options.shouldDecompressFile
+                        shouldDecompressFile: options.shouldDecompressFile,
+                        convertOptions: options.convertOptions
                     });
                 }
             }).catch((err) => {
@@ -448,13 +467,22 @@ export default {
 
         onImportNode(options) {
             const selection = options.selection;
-            
-            const relevantFilters = exportFileFilters.filter((filter) => {
-                return filter.extensions.find((extension) => {
-                    return extension === '*' || 
-                        extension.toLowerCase() === selection.type.toLowerCase();
+
+            let relevantFilters;
+
+            if (options.convertOptions) {
+                relevantFilters = exportFileFilters.filter((filter) => {
+                    return filter.name === options.convertOptions.from
                 });
-            });
+            }
+            else {
+                relevantFilters = exportFileFilters.filter((filter) => {
+                    return filter.extensions.find((extension) => {
+                        return extension === '*' || 
+                            selection.type.toLowerCase().indexOf(extension.toLowerCase()) > -1;
+                    });
+                });
+            }
 
             asyncNode.require('deskgap').then(function(deskgap) {
                 return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
@@ -462,12 +490,13 @@ export default {
                     filters: relevantFilters.length > 0 ? relevantFilters : exportFileFilters
                 }).resolve().value();
             }).then((result) => {
-                if (!result.cancelled && result.filePaths.length > 0) {
+                if (!result.cancelled && result.filePaths && result.filePaths.length > 0) {
                     this.isImporting = true;
 
                     messageUI.send('import-ast-node', {
                         filePath: result.filePaths[0],
-                        node: selection
+                        node: selection,
+                        convertOptions: options.convertOptions
                     });
                 }
             }).catch((err) => {
@@ -476,14 +505,10 @@ export default {
         },
 
         onDataTableChange(event) {
-            // messageUI.send('get-image-previews', {
-            //     first: event.first,
-            //     last: event.first + event.rows
-            // });
+
         },
 
         getChildNodeFromRoot(rootNode, keyToFind) {
-            console.log(keyToFind);
             const keyIsChild = keyToFind.indexOf('_') > -1;
         
             if (keyIsChild) {
@@ -517,6 +542,24 @@ export default {
 
         onRecentFileRemoved(file) {
             messageUI.send('remove-recent-file', file);
+        },
+
+        onOpenNode(options) {
+            const node = options.selection;
+            const keys = node.key.split('_');
+            const rootTreeNode = this.treeModel[keys[0]];
+            const treeNode = this.getChildNodeFromRoot(rootTreeNode, node.key);
+
+            console.log(this.selectedKey);
+            console.log(treeNode);
+
+            if (node.type === 'AST') {
+                this.onNodeSelect(treeNode);
+
+                console.log(this.expendedKeys);
+                this.expandedKeys[rootTreeNode.key] = true;
+                this.selectedKey = { [treeNode.key]: true };
+            }
         }
     },
     unmounted() {
@@ -527,6 +570,7 @@ export default {
         messageUI.removeAllListeners('open-single-ast');
         messageUI.removeAllListeners('set-progress-value');
         messageUI.removeAllListeners('get-recent-files');
+        messageUI.removeAllListeners('preview');
     }
 }
 </script>
@@ -568,5 +612,9 @@ export default {
 <style lang="scss">
     .p-tree > .p-tree-container {
         height: calc(-40px + -0.5rem + 100%);
+    }
+
+    .p-dialog {
+        max-width: 95%;
     }
 </style>

@@ -90,11 +90,17 @@ export default {
                 {label: '>=', value: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO }
             ],
             menuModel: [
+                { label: 'Open', icon: 'pi pi-folder-open', command: () => { this.openSelection(this.selectedNode) }, 
+                    visible: () => { return this.selectedNode.type === 'AST'; }},
                 { label: 'Import', icon: 'pi pi-fw pi-upload', command: () => this.importSelection(this.selectedNode) },
+                { label: 'Import from DDS', icon: 'pi pi-fw pi-upload', command: () => { this.importSelection(this.selectedNode, { from: 'DDS', to: 'P3R' }); },
+                    visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }},
                 { separator: true },
                 { label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode) },
                 { label: 'Export Compressed', icon: 'pi pi-fw pi-download', 
-                    command: () => this.exportSelectionCompressed(this.selectedNode), visible: () => { return this.selectedNode.isCompressed } }
+                    command: () => this.exportSelectionCompressed(this.selectedNode), visible: () => { return this.selectedNode.isCompressed } },
+                { label: 'Export as DDS', icon: 'pi pi-fw pi-download', command: () => { this.exportSelection(this.selectedNode, { from: 'P3R', to: 'DDS' }); },
+                    visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }}
             ],
             selectedNode: null,
             showLargePreview: false
@@ -105,16 +111,18 @@ export default {
             this.$refs.cm.show(event.originalEvent);
         },
 
-        importSelection(selection) {
+        importSelection(selection, convertOptions) {
             this.$emit('import-node', {
-                selection: selection
+                selection: selection,
+                convertOptions: convertOptions
             })
         },
 
-        exportSelection(selection) {
+        exportSelection(selection, convertOptions) {
             this.$emit('export-node', {
                 selection: selection,
-                shouldDecompressFile: true
+                shouldDecompressFile: true,
+                convertOptions: convertOptions
             });
         },
 
@@ -122,6 +130,12 @@ export default {
             this.$emit('export-node', {
                 selection: selection,
                 shouldDecompressFile: false
+            });
+        },
+
+        openSelection(selection) {
+            this.$emit('open-node', {
+                selection: selection
             });
         },
 

@@ -33,6 +33,8 @@ export default {
     },
     methods: {
         parseDate(dateMilli) {
+            if (!dateMilli) { return ''; }
+            
             const date = new Date(dateMilli);
             return moment(date).format('MM/DD/YYYY hh:mm A');
         },

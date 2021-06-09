@@ -178,7 +178,7 @@ module.exports.initializeListeners = function (mainWindow) {
     };
 
     ipcMain.on('export-ast-node', (_, data) => {
-        astEditorService.exportNode(data.filePath, data.node, data.shouldDecompressFile)
+        astEditorService.exportNode(data.filePath, data.node, data.shouldDecompressFile, data.convertOptions)
             .then(() => {
                 const response = new EventResponse(true);
                 response._filePath = data.filePath;
@@ -190,7 +190,7 @@ module.exports.initializeListeners = function (mainWindow) {
     });
 
     ipcMain.on('import-ast-node', (_, data) => {
-        astEditorService.importNode(data.filePath, data.node)
+        astEditorService.importNode(data.filePath, data.node, data.convertOptions)
             .then(() => {
                 const response = new EventResponse(true);
                 response._filePath = data.filePath;
@@ -211,10 +211,20 @@ module.exports.initializeListeners = function (mainWindow) {
         recentFileService.removeFile(data.path);
     });
 
+    ipcMain.on('convert-and-import-ast-node', (_, data) => {
+
+    });
+
     astEditorService.eventEmitter.on('progress', (val) => {
         const response = new EventResponse(true);
         response.value = val;
         mainWindow.webContents.send('set-progress-value', response);
+    });
+
+    astEditorService.eventEmitter.on('preview', (data) => {
+        const response = new EventResponse(true);
+        response.data = data;
+        mainWindow.webContents.send('preview', response);
     });
 
     function sendErrorResponse(err, event) {
