@@ -4,12 +4,14 @@ const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('./model/CareerInfo');
 const EventResponse = require('./model/EventResponse');
 const recentFileService = require('./recentFilesService');
+const changedNodeService = require('./changed-node-service');
 const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
 const astEditorService = require('./ast-editor/ast-editor-service');
 
 let helper;
 
 recentFileService.initialize();
+changedNodeService.initialize();
 
 module.exports.initializeListeners = function (mainWindow) {
     ipcMain.on('get-version', () => {
@@ -99,8 +101,6 @@ module.exports.initializeListeners = function (mainWindow) {
     });
 
     ipcMain.on('get-ast-child-nodes', (_, options) => {
-        log.profile('get child nodes');
-
         const rootNode = options.rootNode;
         const node = options.nodeToLoad;
 
@@ -110,9 +110,10 @@ module.exports.initializeListeners = function (mainWindow) {
                     try {
                         rootNode.data.loaded = true;
                         rootNode.children = astEditorService.parseArchiveFileList(astFile, rootNode);
+                        setChangedNodes(node.data.absolutePath, rootNode);
+
                         const response = new EventResponse(true);
                         response._node = rootNode;
-                        log.profile('get child nodes');
     
                         mainWindow.webContents.send('get-ast-child-nodes', response);
                     }
@@ -127,7 +128,6 @@ module.exports.initializeListeners = function (mainWindow) {
         else {
             astEditorService.readChildAST(node, false, app.getPath('userData'))
                 .then((astFile) => {
-                    log.info('after read child');
                     const nodeToSet = getNodeToSetFromRoot(rootNode, node.key);
                     
                     rootNode.data.loaded = true;
@@ -141,9 +141,11 @@ module.exports.initializeListeners = function (mainWindow) {
                     const nodeInMappedFiles = getNodeToSetFromRoot(dummyRootNode, node.key);
                     nodeToSet.children = nodeInMappedFiles.children;
 
+                    const rootAST = getActiveRootFromChildNode(node);
+                    setChangedNodes(rootAST.absolutePath, rootNode);
+
                     const response = new EventResponse(true);
                     response._node = rootNode;
-                    log.profile('get child nodes');
 
                     mainWindow.webContents.send('get-ast-child-nodes', response);
                 })
@@ -153,6 +155,26 @@ module.exports.initializeListeners = function (mainWindow) {
         }
 
     });
+
+    function getActiveRootFromChildNode(node) {
+        const readPath = node.key.split('_');
+        const rootKey = readPath[0];
+        return astEditorService.activeASTFiles[rootKey];
+    };
+
+    function setChangedNodes(rootPath, rootNode) {
+        const changedNodes = changedNodeService.getChangedNodesByPath(rootPath);
+
+        if (changedNodes) {
+            changedNodes.forEach((key) => {
+                let node = getNodeToSetFromRoot(rootNode, `${rootNode.key}_${key}`);
+
+                if (node) {
+                    node.data.isChanged = true;
+                }
+            });
+        }
+    };
 
     function getNodeToSetFromRoot(rootNode, keyToFind) {
         const keyIsChild = keyToFind.indexOf('_') > -1;
@@ -164,9 +186,14 @@ module.exports.initializeListeners = function (mainWindow) {
                 let workingNode = rootNode;
 
                 nodesToFind.slice(1).forEach((nodeKey) => {
-                    workingNode = workingNode.children.find((childNode) => {
-                        return childNode.key == `${workingNode.key}_${nodeKey}`;
-                    });
+                    if (workingNode && workingNode.children && workingNode.children.length > 1) {
+                        workingNode = workingNode.children.find((childNode) => {
+                            return childNode.key == `${workingNode.key}_${nodeKey}`;
+                        });
+                    }
+                    else {
+                        workingNode = undefined;
+                    }
                 });
 
                 return workingNode;
@@ -178,7 +205,10 @@ module.exports.initializeListeners = function (mainWindow) {
     };
 
     ipcMain.on('export-ast-node', (_, data) => {
-        astEditorService.exportNode(data.filePath, data.node, data.shouldDecompressFile, data.convertOptions)
+        astEditorService.exportNode(data.filePath, data.node, {
+            'shouldDecompressFile': data.shouldDecompressFile, 
+            'convertOptions': data.convertOptions
+        })
             .then(() => {
                 const response = new EventResponse(true);
                 response._filePath = data.filePath;
@@ -190,15 +220,65 @@ module.exports.initializeListeners = function (mainWindow) {
     });
 
     ipcMain.on('import-ast-node', (_, data) => {
-        astEditorService.importNode(data.filePath, data.node, data.convertOptions)
-            .then(() => {
-                const response = new EventResponse(true);
-                response._filePath = data.filePath;
-                mainWindow.webContents.send('import-ast-node', response);
+        const rootAST = getActiveRootFromChildNode(data.node);
+        const nodePathAfterRoot = data.node.key.split('_').slice(1).join('_');
+
+        const nodeHasNotBeenChanged = !changedNodeService.nodeWasChanged(rootAST.absolutePath, nodePathAfterRoot);
+
+        if (nodeHasNotBeenChanged) {
+            changedNodeService.addNode(rootAST.absolutePath, nodePathAfterRoot);
+            const pathToExportPristineNode = changedNodeService.getHashedNodePath(rootAST.absolutePath, nodePathAfterRoot);
+    
+            astEditorService.exportNode(pathToExportPristineNode, data.node, {
+                'shouldDecompressFile': false
             })
-            .catch((err) => {
-                sendErrorResponse(err, 'import-ast-node');
+                .then(() => {
+                    importNode();
+                })
+        }
+        else {
+            importNode();
+        }
+
+        function importNode() {
+            astEditorService.importNode(data.filePath, data.node, {
+                'shouldCompressFile': data.shouldCompressFile, 
+                'convertOptions': data.convertOptions
             })
+                .then(() => {
+                    const response = new EventResponse(true);
+                    response._filePath = data.filePath;
+                    mainWindow.webContents.send('import-ast-node', response);
+                })
+                .catch((err) => {
+                    sendErrorResponse(err, 'import-ast-node');
+                })
+        };
+    });
+
+    ipcMain.on('revert-node', (_, data) => {
+        const rootAST = getActiveRootFromChildNode(data.node);
+        const nodePathAfterRoot = data.node.key.split('_').slice(1).join('_');
+        const nodeHasChanged = changedNodeService.nodeWasChanged(rootAST.absolutePath, nodePathAfterRoot);
+
+        if (nodeHasChanged) {
+            const pathToPristineNode = changedNodeService.getHashedNodePath(rootAST.absolutePath, nodePathAfterRoot);
+            astEditorService.importNode(pathToPristineNode, data.node, {
+                'shouldCompressFile': false,
+                'forceExtractPreview': true
+            })
+                .then(() => {
+                    changedNodeService.removeNode(rootAST.absolutePath, nodePathAfterRoot);
+                    const response = new EventResponse(true);
+                    mainWindow.webContents.send('revert-node', response);
+                })
+                .catch((err) => {
+                    sendErrorResponse(err, 'revert-node');
+                })
+        }
+        else {
+            sendErrorResponse('Node was not changed, cannot revert.', 'revert-node');
+        }
     });
 
     ipcMain.on('get-recent-files', (_, data) => {
@@ -211,8 +291,21 @@ module.exports.initializeListeners = function (mainWindow) {
         recentFileService.removeFile(data.path);
     });
 
-    ipcMain.on('convert-and-import-ast-node', (_, data) => {
+    ipcMain.on('get-changed-nodes', (_) => {
+        let response = new EventResponse(true);
+        response.results = {};
 
+        Object.keys(astEditorService.activeASTFiles).forEach((key) => {
+            response.results[key.absolutePath] = changedNodeService.getChangedNodesByPath(key.absolutePath);
+        });
+
+        mainWindow.webContents.send('get-changed-nodes', response);
+    });
+
+    ipcMain.on('get-changed-nodes-by-path', (_, data) => {
+        const response = new EventResponse(true);
+        response.results = changedNodeService.getChangedNodesByPath(data.path);
+        mainWindow.webContents.send('get-changed-nodes-by-path', response);
     });
 
     astEditorService.eventEmitter.on('progress', (val) => {
@@ -225,6 +318,11 @@ module.exports.initializeListeners = function (mainWindow) {
         const response = new EventResponse(true);
         response.data = data;
         mainWindow.webContents.send('preview', response);
+    });
+
+    astEditorService.eventEmitter.on('previews-done', () => {
+        const response = new EventResponse(true);
+        mainWindow.webContents.send('previews-done', response);
     });
 
     function sendErrorResponse(err, event) {

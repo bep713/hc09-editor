@@ -64,7 +64,7 @@ astService.openRootFolder = (rootPath) => {
 
 astService.openSingleAST = (astPath, fileName, index) => {
     return new Promise((resolve, reject) => {
-        if (!index) {
+        if (index === null || index === undefined) {
             index = Object.keys(astService.activeASTFiles).length;
         }
     
@@ -100,7 +100,7 @@ astService.openSingleAST = (astPath, fileName, index) => {
 astService.readAST = (astAbsolutePath, recursiveRead, extractPreviews, key) => {
     return new Promise((resolve, reject) => {
         const stream = fs.createReadStream(astAbsolutePath);
-        readASTFromStream(stream, recursiveRead, extractPreviews)
+        readASTFromStream(stream, recursiveRead, extractPreviews, false, key)
             .then((astFile) => {
                 astService.activeASTFiles[key] = {
                     'absolutePath': astAbsolutePath,
@@ -120,12 +120,13 @@ astService.readChildAST = (childNode, recursiveRead, temporaryOutputBasePath) =>
     const rootAST = astService.activeASTFiles[rootKey];
     const rootStream = fs.createReadStream(rootAST.absolutePath);
 
-    return readASTFromStream(rootStream, recursiveRead, temporaryOutputBasePath, readPath.slice(1));
+    return readASTFromStream(rootStream, recursiveRead, temporaryOutputBasePath, readPath.slice(1), childNode.key);
 };
 
-function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfterRoot) {
+function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfterRoot, parentKey) {
     return new Promise((resolve, reject) => {
         let readASTCompressedFilePromises = [];
+        let previewPromises = [];
 
         const parser = new ASTParser();
         parser.extract = true;
@@ -257,17 +258,29 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             astData.toc.fileExtension = fileExtension;
                             astData.toc.subtype = subtype;
                             
-                            let extractPreviewPromise = new Promise((resolve, reject) => {
+                            previewPromises.push(new Promise((resolve, reject) => {
                                 if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
                                     tempStoreStream.push(null);
+
+                                    const key = `${parentKey}_${astData.toc.index}`
+
                                     astService.extractPreviewImageFromStream(tempStoreStream)
                                         .then((preview) => {
-                                            astData.toc.preview = preview;
+                                            astService.eventEmitter.emit('preview', {
+                                                'key': key,
+                                                'preview': preview
+                                            });
+
                                             resolve();
                                         })
                                         .catch((err) => {
                                             log.error(err);
-                                            astData.toc.preview = '';
+                                            
+                                            astService.eventEmitter.emit('preview', {
+                                                'key': key,
+                                                'preview': ''
+                                            });
+
                                             resolve();
                                         });
                                 }
@@ -276,13 +289,13 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                     astData.toc.preview = '';
                                     resolve();
                                 }
-                            });
+                            }));
 
-                            extractPreviewPromise.catch((err) => {
-                                log.error(err); 
-                            }).finally(() => {
+                            // extractPreviewPromise.catch((err) => {
+                                // log.error(err); 
+                            // }).finally(() => {
                                 if (readPathAfterRoot && readPathAfterRoot.length > 0) {
-                                    readASTFromStream(newASTStream, recursiveRead, extractPreviews, readPathAfterRoot.slice(1))
+                                    readASTFromStream(newASTStream, recursiveRead, extractPreviews, readPathAfterRoot.slice(1), parentKey)
                                         .then((file) => {
                                             astData.toc.file = file;
                                             resolve(parser.file);
@@ -292,7 +305,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                         });
                                 }
                                 else if (recursiveRead && fileExtension === 'ast') {
-                                    readASTFromStream(newASTStream, true, extractPreviews)
+                                    readASTFromStream(newASTStream, true, extractPreviews, false, parentKey)
                                         .then((file) => {
                                             astData.toc.file = file;
                                             resolve(parser.file);
@@ -304,7 +317,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                 else {
                                     resolve(parser.file);
                                 }
-                            })
+                            // })
     
                         }
                     )
@@ -327,6 +340,11 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                     .catch((err) => {
                         reject(err);
                     })
+
+                Promise.all(previewPromises)
+                    .finally(() => {
+                        astService.eventEmitter.emit('previews-done');
+                    })
             }
         );
     });
@@ -347,7 +365,8 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
                 'description': toc.descriptionString,
                 'loaded': toc.fileExtension === 'ast' ? (toc.file !== null && toc.file !== undefined) : true,
                 'isCompressed': toc.uncompressedSize.length > 0 ? toc.uncompressedSizeInt > 0 : false,
-                'previewLocation': toc.preview ? toc.preview : ''
+                'previewLocation': toc.preview ? toc.preview : '',
+                'isChanged': false
             },
             'leaf': toc.fileExtension !== 'ast'
         }
@@ -360,21 +379,21 @@ astService.parseArchiveFileList = (astFile, rootNode) => {
     })
 };
 
-astService.exportNode = (exportPath, node, shouldDecompressFile, convertOptions) => {
+astService.exportNode = (exportPath, node, options) => {
     return new Promise((resolve, reject) => {
         const nodeHierarchy = node.key.split('_');
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
         const rootStream = fs.createReadStream(rootASTFile.absolutePath);
 
-        const options = {
+        const streamOptions = {
             'nodeHierarchy': nodeHierarchy.slice(1),
             'total': nodeHierarchy.length,
             'exportPath': exportPath,
-            'shouldDecompressFile': shouldDecompressFile,
-            'convertOptions': convertOptions
+            'shouldDecompressFile': options.shouldDecompressFile,
+            'convertOptions': options.convertOptions
         };
         
-        resolve(astService.exportNodeFromStream(rootStream, options));
+        resolve(astService.exportNodeFromStream(rootStream, streamOptions));
     });
 };
 
@@ -459,7 +478,7 @@ astService.exportNodeFromStream = (stream, options) => {
     });
 };
 
-astService.importNode = (filePath, node, convertOptions) => {
+astService.importNode = (filePath, node, options) => {
     return new Promise((resolve, reject) => {
         const nodeHierarchy = node.key.split('_');
         const rootASTFile = astService.activeASTFiles[nodeHierarchy[0]];
@@ -468,17 +487,19 @@ astService.importNode = (filePath, node, convertOptions) => {
         // const tempFolder = path.join(app.getPath('userData'), uuid());
         // fs.promises.mkdir(tempFolder)
             // .then(() => {
-                const options = {
+                const streamOptions = {
                     'keyToImport': node.key,
                     'originalNodeHierarchy': nodeHierarchy,
                     'currentNodeHierarchy': nodeHierarchy.slice(1),
                     'importFilePath': filePath,
                     'temporaryStreams': [],
                     'astParserFiles': [],
-                    'convertOptions': convertOptions
+                    'shouldCompressFile': options ? options.shouldCompressFile : true,
+                    'convertOptions': options ? options.convertOptions : null,
+                    'forceExtractPreview': options ? options.forceExtractPreview : false
                 };
                 
-                astService.importNodeFromStream(rootStream, options)
+                astService.importNodeFromStream(rootStream, streamOptions)
                     .then(() => {
                         // fs.promises.rmdir(tempFolder, { force: true, recursive: true })
                             // .then(() => {
@@ -546,7 +567,9 @@ astService.importNodeFromStream = (stream, options) => {
                         importFilePath: options.importFilePath,
                         temporaryStreams: options.temporaryStreams,
                         astParserFiles: options.astParserFiles,
-                        convertOptions: options.convertOptions
+                        convertOptions: options.convertOptions,
+                        shouldCompressFile: options.shouldCompressFile,
+                        forceExtractPreview: options.forceExtractPreview
                     }));
                 }
                 else {
@@ -560,7 +583,9 @@ astService.importNodeFromStream = (stream, options) => {
                         dataToImport: options.importFilePath,
                         astParserFiles: options.astParserFiles,
                         temporaryStreams: options.temporaryStreams,
-                        convertOptions: options.convertOptions
+                        convertOptions: options.convertOptions,
+                        shouldCompressFile: options.shouldCompressFile,
+                        forceExtractPreview: options.forceExtractPreview
                     }))
 
                     function importNode(options) {
@@ -579,15 +604,18 @@ astService.importNodeFromStream = (stream, options) => {
                                             }
                                         }
 
-                                        const importExtension = path.extname(options.dataToImport);
+                                        const importExtension = path.extname(options.dataToImport).toLowerCase();
 
-                                        if (importExtension === '.p3r' || importExtension === '.dds') {
+                                        if (options.forceExtractPreview || (importExtension === '.p3r' || importExtension === '.dds')) {
+                                            const sig = importFileBuffer.readUInt16BE(0);
+                                            const bufferIsCompressed = (sig === 0x78DA || sig === 0x789C || sig === 0x7801);
+
                                             let tempReadStream = new Readable();
                                             tempReadStream._read = () => {};
                                             tempReadStream.push(importFileBuffer);
                                             tempReadStream.push(null);
 
-                                            astService.extractPreviewImageFromStream(tempReadStream)
+                                            astService.extractPreviewImageFromStream(tempReadStream, bufferIsCompressed)
                                                 .then((preview) => {
                                                     astService.eventEmitter.emit('preview', {
                                                         'key': options.keyToImport,
@@ -595,7 +623,7 @@ astService.importNodeFromStream = (stream, options) => {
                                                     });
                                                 })
                                                 .catch((err) => {
-                                                    console.log(err);
+                                                    log.error(err);
                                                 })
                                         }
 
@@ -610,7 +638,7 @@ astService.importNodeFromStream = (stream, options) => {
                                     const tocToImport = parserToUse.file.tocs.find((toc) => { return toc.index == options.reverseNodeHierarchy[0] });
                                     const newDataNeedsCompressed = tocToImport.uncompressedSize.length > 0 && tocToImport.uncompressedSizeInt > 0
                                     
-                                    if (newDataNeedsCompressed) {
+                                    if (newDataNeedsCompressed && options.shouldCompressFile) {
                                         importFileBuffer = zlib.deflateSync(importFileBuffer)
                                     }
                                     
@@ -643,7 +671,9 @@ astService.importNodeFromStream = (stream, options) => {
                                                     dataToImport: Buffer.concat(newDataTempBuffers),
                                                     temporaryStreams: options.temporaryStreams,
                                                     astParserFiles: options.astParserFiles,
-                                                    convertOptions: options.convertOptions
+                                                    shouldCompressFile: options.shouldCompressFile,
+                                                    convertOptions: options.convertOptions,
+                                                    forceExtractPreview: options.forceExtractPreview
                                                 }));
                                             }
                                         )
@@ -674,14 +704,20 @@ astService.importNodeFromStream = (stream, options) => {
     });
 };
 
-astService.extractPreviewImageFromStream = (nodeStream) => {
+astService.extractPreviewImageFromStream = (nodeStream, bufferIsCompressed) => {
     return new Promise((resolve, reject) => {
         const ddsParser = new DDSParser();
 
         let imageData;
+
+        let startPipes = [nodeStream];
+
+        if (bufferIsCompressed) {
+            startPipes.push(zlib.createInflate());
+        }
         
         pipeline(
-            nodeStream,
+            ...startPipes,
             ddsParser,
             new Transform({
                 transform(chunk, enc, cb) {

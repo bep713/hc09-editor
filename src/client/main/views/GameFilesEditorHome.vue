@@ -16,7 +16,7 @@
                 <SplitterPanel :size="75">
                     <GameFilesEditorDataTable v-if="tableBaseModel" :selectedFileName="selectedNode.data.name" :tableModel="tableModel" 
                         :isLoading="isDataViewerLoading" @export-node="onExportNode" @import-node="onImportNode" @open-node="onOpenNode"
-                        @page="onDataTableChange" @filter="onDataTableChange" @sort="onDataTableChange" />
+                        @page="onDataTableChange" @filter="onDataTableChange" @sort="onDataTableChange" @revert-node="onRevertNode" />
                 </SplitterPanel>
             </Splitter>
         </div>
@@ -102,6 +102,7 @@ export default {
                 this.astModel = null;
             }
             else {
+                console.log(res._rootFiles);
                 this.$toast.removeAllGroups();
                 this.astModel = res._rootFiles;
                 this.treeModel = JSON.parse(JSON.stringify(res._rootFiles));
@@ -161,6 +162,12 @@ export default {
                     this.onNodeSelect(nodeToSelect);
                     this.isDataViewerLoading = false;
                     this.setTableBaseModelAfterLoad = false;
+                }
+
+                console.log('read done');
+
+                if (this.previewsDone) {
+                    this.setPreviews();
                 }
             }
 
@@ -225,8 +232,6 @@ export default {
                     detail: `The selected file has been imported successfully.`, 
                     life: 4000
                 });
-                
-
             }
         });
 
@@ -245,8 +250,43 @@ export default {
                 return root.key === keys[0];
             });
 
-            const node = this.getChildNodeFromRoot(rootNode, res.data.key);
-            node.data.previewLocation = res.data.preview;
+            try {
+                const node = this.getChildNodeFromRoot(rootNode, res.data.key);
+                node.data.previewLocation = res.data.preview;
+            }
+            catch (err) {
+                this.pendingPreviews.push(res.data);
+            }
+
+        });
+
+        messageUI.on('previews-done', (_, res) => {
+            this.previewsDone = true;
+
+            if (!this.isDataViewerLoading) {
+                this.setPreviews();
+            }
+        });
+
+        messageUI.on('revert-node', (_, res) => {
+            this.isImporting = false;
+
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Import Error', 
+                    detail: 'There was an error reverting the selected file. Please try again.', 
+                    life: 4000
+                });
+            }
+            else {
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'Revert Successful', 
+                    detail: `The selected file has been reverted successfully.`, 
+                    life: 4000
+                });
+            }
         });
 
         messageUI.send('get-recent-files');
@@ -263,6 +303,7 @@ export default {
                     'type': childNode.data.type,
                     'description': childNode.data.description,
                     'isCompressed': childNode.data.isCompressed,
+                    'isChanged': childNode.data.isChanged,
                     'previewLocation': childNode.data.previewLocation
                 }
             });
@@ -289,7 +330,9 @@ export default {
             selectedNode: null,
             isImporting: false,
             isExporting: false,
+            previewsDone: false,
             progressMessage: '',
+            pendingPreviews: [],
             tableBaseModel: null,
             rootFolderPath: null,
             expandedChildRows: [],
@@ -360,6 +403,8 @@ export default {
                     });
                 }
 
+                this.previewsDone = false;
+
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,
                     nodeToLoad: node
@@ -385,6 +430,8 @@ export default {
                         return astNode.key === rootKey;
                     });
                 }
+
+                this.previewsDone = false;
 
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,
@@ -467,6 +514,17 @@ export default {
 
         onImportNode(options) {
             const selection = options.selection;
+            
+            // get the node in the ast model
+            const keys = selection.key.split('_');
+            const rootNode = this.astModel.find((root) => {
+                return root.key === keys[0];
+            });
+
+            if(rootNode) {
+                const node = this.getChildNodeFromRoot(rootNode, selection.key);
+                node.data.isChanged = true;
+            }
 
             let relevantFilters;
 
@@ -496,12 +554,33 @@ export default {
                     messageUI.send('import-ast-node', {
                         filePath: result.filePaths[0],
                         node: selection,
+                        shouldCompressFile: options.shouldCompressFile,
                         convertOptions: options.convertOptions
                     });
                 }
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onRevertNode(options) {
+            const selection = options.selection;
+            this.isImporting = true;
+            
+            // get the node in the ast model
+            const keys = selection.key.split('_');
+            const rootNode = this.astModel.find((root) => {
+                return root.key === keys[0];
+            });
+
+            if(rootNode) {
+                const node = this.getChildNodeFromRoot(rootNode, selection.key);
+                node.data.isChanged = false;
+            }
+
+            messageUI.send('revert-node', {
+                node: selection
+            });
         },
 
         onDataTableChange(event) {
@@ -547,22 +626,39 @@ export default {
         onOpenNode(options) {
             const node = options.selection;
             const keys = node.key.split('_');
-            const rootTreeNode = this.treeModel[keys[0]];
-            const treeNode = this.getChildNodeFromRoot(rootTreeNode, node.key);
+            const rootTreeNode = this.treeModel.find((root) => {
+                return root.key === keys[0];
+            });
 
-            console.log(this.selectedKey);
-            console.log(treeNode);
+            const treeNode = this.getChildNodeFromRoot(rootTreeNode, node.key);
 
             if (node.type === 'AST') {
                 this.onNodeSelect(treeNode);
 
-                console.log(this.expendedKeys);
                 this.expandedKeys[rootTreeNode.key] = true;
                 this.selectedKey = { [treeNode.key]: true };
+                console.log(this.expandedKeys);
             }
+        },
+
+        setPreviews() {
+            this.pendingPreviews.forEach((preview) => {
+                const keys = preview.key.split('_');
+                const rootNode = this.astModel.find((root) => {
+                    return root.key === keys[0];
+                });
+
+                if(rootNode) {
+                    const node = this.getChildNodeFromRoot(rootNode, preview.key);
+                    node.data.previewLocation = preview.preview;
+                }
+            });
+
+            this.pendingPreviews = [];
         }
     },
     unmounted() {
+        messageUI.removeAllListeners('open-root-folder');
         messageUI.removeAllListeners('open-file-path');
         messageUI.removeAllListeners('get-ast-child-nodes');
         messageUI.removeAllListeners('export-ast-node');

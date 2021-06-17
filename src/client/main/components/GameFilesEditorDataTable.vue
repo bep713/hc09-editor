@@ -93,14 +93,40 @@ export default {
                 { label: 'Open', icon: 'pi pi-folder-open', command: () => { this.openSelection(this.selectedNode) }, 
                     visible: () => { return this.selectedNode.type === 'AST'; }},
                 { label: 'Import', icon: 'pi pi-fw pi-upload', command: () => this.importSelection(this.selectedNode) },
-                { label: 'Import from DDS', icon: 'pi pi-fw pi-upload', command: () => { this.importSelection(this.selectedNode, { from: 'DDS', to: 'P3R' }); },
-                    visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }},
+                { 
+                    label: 'Import From...',
+                    items: [
+                        { 
+                            label: 'Compressed', 
+                            command: () => this.importSelectionCompressed(this.selectedNode) 
+                        },
+                        { 
+                            label: 'DDS', 
+                            command: () => { this.importSelection(this.selectedNode, { from: 'DDS', to: 'P3R' }); },
+                            visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }
+                        }
+                    ]
+                },
                 { separator: true },
                 { label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode) },
-                { label: 'Export Compressed', icon: 'pi pi-fw pi-download', 
-                    command: () => this.exportSelectionCompressed(this.selectedNode), visible: () => { return this.selectedNode.isCompressed } },
-                { label: 'Export as DDS', icon: 'pi pi-fw pi-download', command: () => { this.exportSelection(this.selectedNode, { from: 'P3R', to: 'DDS' }); },
-                    visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }}
+                { 
+                    label: 'Export As...',
+                    items: [
+                        { 
+                            label: 'Compressed', 
+                            command: () => this.exportSelectionCompressed(this.selectedNode), 
+                            visible: () => { return this.selectedNode.isCompressed } 
+                        },
+                        { 
+                            label: 'DDS', 
+                            command: () => { this.exportSelection(this.selectedNode, { from: 'P3R', to: 'DDS' }); },
+                            visible: () => { return this.selectedNode.type.indexOf('P3R') > -1; }
+                        }
+                    ]
+                },
+                { separator: true, visible: () => { return this.selectedNode.isChanged; } },
+                { label: 'Revert', icon: 'pi pi-refresh', command: () => this.revertSelection(this.selectedNode), 
+                    visible: () => { return this.selectedNode.isChanged; }}
             ],
             selectedNode: null,
             showLargePreview: false
@@ -114,6 +140,15 @@ export default {
         importSelection(selection, convertOptions) {
             this.$emit('import-node', {
                 selection: selection,
+                shouldCompressFile: true,
+                convertOptions: convertOptions
+            })
+        },
+
+        importSelectionCompressed(selection, convertOptions) {
+            this.$emit('import-node', {
+                selection: selection,
+                shouldCompressFile: false,
                 convertOptions: convertOptions
             })
         },
@@ -135,6 +170,12 @@ export default {
 
         openSelection(selection) {
             this.$emit('open-node', {
+                selection: selection
+            });
+        },
+        
+        revertSelection(selection) {
+            this.$emit('revert-node', {
                 selection: selection
             });
         },
