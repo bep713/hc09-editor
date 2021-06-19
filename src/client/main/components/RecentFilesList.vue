@@ -1,6 +1,6 @@
 <template>
     <div class="recent-files-wrapper">
-        <h2 class="recent-files-header">Recently opened items</h2>
+        <h2 class="recent-files-header">{{headerText}}</h2>
         <div class="files-wrapper" v-if="recentFiles.length > 0">
             <div class="recent-file" v-for="recentFile in recentFiles" :key="recentFile.filePath" @click="onRecentFileClicked(recentFile)">
                 <div class="recent-file-data">
@@ -29,7 +29,11 @@ export default {
         Button
     },
     props: {
-        recentFiles: Array
+        recentFiles: Array,
+        headerText: {
+            type: String,
+            default: 'Recently opened items'
+        }
     },
     methods: {
         parseDate(dateMilli) {

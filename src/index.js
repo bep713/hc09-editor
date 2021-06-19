@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const api = require('./server/api');
 const log = require('./util/logger');
 const menu = require('./server/menu');
+const api = require('./server/api/api');
 const { app, BrowserWindow } = require('deskgap');
 
 const isDev = process.env.NODE_ENV === 'development';

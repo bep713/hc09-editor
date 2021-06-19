@@ -11,7 +11,7 @@ const deskgapMock = {
     }
 };
 
-const astEditorService = proxyquire('../../src/server/ast-editor/ast-editor-service', {
+const astEditorService = proxyquire('../../src/server/editors/ast-editor-service', {
     'deskgap': deskgapMock
 });
 

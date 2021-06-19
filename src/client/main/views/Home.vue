@@ -6,6 +6,7 @@
                 <div class="button-container">
                     <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
                     <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-file" @click="onEditGameFilesClicked" />
+                    <Button label="Open DB Editor" class="p-button-outlined" icon="pi pi-file" @click="onOpenDBEditorClicked" />
                 </div>
             </div>
         </div>
@@ -72,6 +73,10 @@ export default {
 
         onEditSettingsClicked: function () {
             this.$router.push('/settings/home');
+        },
+
+        onOpenDBEditorClicked: function () {
+            this.$router.push('/db-editor/home');
         }
     },
     unmounted() {

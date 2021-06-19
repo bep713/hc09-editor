@@ -21,7 +21,7 @@
             </Splitter>
         </div>
 
-        <RecentFilesList v-else :recentFiles="recentFiles" @recentFileClicked="onRecentFileClicked" @recentFileRemoved="onRecentFileRemoved" />
+        <RecentFilesList v-else :recentFiles="recentFiles" :headerText="'Recently opened AST items'" @recentFileClicked="onRecentFileClicked" @recentFileRemoved="onRecentFileRemoved" />
 
         <Dialog header="Game Files Editor Help" v-model:visible="showHelp" :modal="true" :closeOnEscape="true" :dismissableMask="true">
             <div class="help-wrapper">
@@ -102,7 +102,6 @@ export default {
                 this.astModel = null;
             }
             else {
-                console.log(res._rootFiles);
                 this.$toast.removeAllGroups();
                 this.astModel = res._rootFiles;
                 this.treeModel = JSON.parse(JSON.stringify(res._rootFiles));
@@ -240,7 +239,7 @@ export default {
             this.progressMessage = res.message;
         });
 
-        messageUI.on('get-recent-files', (_, res) => {
+        messageUI.on('get-recent-ast-files', (_, res) => {
             this.recentFiles = res.results;
         });
 
@@ -289,7 +288,7 @@ export default {
             }
         });
 
-        messageUI.send('get-recent-files');
+        messageUI.send('get-recent-ast-files');
     },
     computed: {
         tableModel() {
@@ -620,7 +619,7 @@ export default {
         },
 
         onRecentFileRemoved(file) {
-            messageUI.send('remove-recent-file', file);
+            messageUI.send('remove-recent-ast-file', file);
         },
 
         onOpenNode(options) {
@@ -665,8 +664,10 @@ export default {
         messageUI.removeAllListeners('import-ast-node');
         messageUI.removeAllListeners('open-single-ast');
         messageUI.removeAllListeners('set-progress-value');
-        messageUI.removeAllListeners('get-recent-files');
+        messageUI.removeAllListeners('get-recent-ast-files');
         messageUI.removeAllListeners('preview');
+        messageUI.removeAllListeners('previews-done');
+        messageUI.removeAllListeners('revert-node');
     }
 }
 </script>
@@ -674,16 +675,6 @@ export default {
 <style lang="scss" scoped>
     .game-files-editor-wrapper {
         margin: 20px;
-    }
-
-    .filter-buttons-wrapper {
-        margin-bottom: 30px;
-
-        button {
-            + button {
-                margin-left: 15px;
-            }
-        }
     }
 
     .help-wrapper {
@@ -706,6 +697,16 @@ export default {
 </style>
 
 <style lang="scss">
+    .filter-buttons-wrapper {
+        margin-bottom: 30px;
+
+        button {
+            + button {
+                margin-left: 15px;
+            }
+        }
+    }
+
     .p-tree > .p-tree-container {
         height: calc(-40px + -0.5rem + 100%);
     }

@@ -63,3 +63,4 @@ scripts/
 *.ast
 dist/
 log/
+!lib/deskgap/dist
