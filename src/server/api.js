@@ -10,10 +10,10 @@ const astEditorService = require('./ast-editor/ast-editor-service');
 
 let helper;
 
-recentFileService.initialize();
-changedNodeService.initialize();
-
 module.exports.initializeListeners = function (mainWindow) {
+    recentFileService.initialize();
+    changedNodeService.initialize();
+
     ipcMain.on('get-version', () => {
         mainWindow.webContents.send('get-version', app.getVersion());
     });
