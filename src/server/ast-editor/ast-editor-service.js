@@ -212,7 +212,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                     let tempStoreStream = new Readable();
                     tempStoreStream._read = () => {};
     
-                    const isNotCompressed = astData.toc.uncompressedSize.length === 0 || astData.toc.uncompressedSizeInt === 0;
+                    const isNotCompressed = !(astData.toc.isCompressed);
                     let pipes = [];
     
                     if (isNotCompressed) {
@@ -221,7 +221,14 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             fileExtensionPicker,
                             new Transform({
                                 transform(chunk, enc, cb) {
-                                    newASTStream.push(chunk);
+                                    if (recursiveRead || (readPathAfterRoot && readPathAfterRoot.length > 0)) {
+                                        newASTStream.push(chunk);
+                                    }
+
+                                    if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
+                                        tempStoreStream.push(chunk);
+                                    }
+
                                     cb();
                                 }
                             }),
@@ -234,9 +241,11 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             fileExtensionPicker,
                             new Transform({
                                 transform(chunk, enc, cb) {
-                                    newASTStream.push(chunk);
+                                    if (recursiveRead || (readPathAfterRoot && readPathAfterRoot.length > 0)) {
+                                        newASTStream.push(chunk);
+                                    }
     
-                                    if (extractPreviews) {
+                                    if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
                                         tempStoreStream.push(chunk);
                                     }
     
@@ -250,6 +259,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                         ...pipes,
                         (err) => {
                             if (err) {
+                                log.error('Error at index: ' + astData.toc.index.toString(16) + ', start position in file: ' + astData.toc.startPositionInFile);
                                 reject(err);
                             }
     
@@ -333,11 +343,15 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                     reject(err);
                 }
 
+                log.info('Number of promises: ' + readASTCompressedFilePromises.length.toString(16));
+
                 Promise.all(readASTCompressedFilePromises)
                     .then(() => {
+                        log.info('read done');
                         resolve(parser.file);
                     })
                     .catch((err) => {
+                        log.info('error: ' + err);
                         reject(err);
                     })
 
