@@ -165,6 +165,8 @@ export default {
                 }
 
                 console.log('read done');
+                this.isReading = false;
+                this.progressValue = 0;
 
                 if (this.previewsDone) {
                     this.setPreviews();
@@ -310,7 +312,7 @@ export default {
         },
 
         longRunningActionIsRunning() {
-            return this.isExporting || this.isImporting;
+            return this.isExporting || this.isImporting || this.isReading;
         }
     },
     data() {
@@ -324,6 +326,7 @@ export default {
             showHelp: false,
             recentFiles: [],
             expandedRows: [],
+            isReading: false,
             expandedKeys: {},
             progressValue: 0,
             selectedKey: null,
@@ -404,6 +407,7 @@ export default {
                 }
 
                 this.previewsDone = false;
+                this.isReading = true;
 
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,
@@ -432,6 +436,7 @@ export default {
                 }
 
                 this.previewsDone = false;
+                this.isReading = true;
 
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,

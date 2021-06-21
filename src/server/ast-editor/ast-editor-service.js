@@ -132,6 +132,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
         parser.extract = true;
 
         parser.file.id = uuid();
+        let completedPromises = 0;
 
         parser.on('compressed-file', (astData) => {
             if (!readPathAfterRoot || readPathAfterRoot.length === 0 || (readPathAfterRoot && astData.toc.index == readPathAfterRoot[0])) {
@@ -325,6 +326,8 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                         });
                                 }
                                 else {
+                                    completedPromises += 1;
+                                    astService.eventEmitter.emit('progress', Math.floor((completedPromises / parser.file.tocs.length) * 100));
                                     resolve(parser.file);
                                 }
                             // })

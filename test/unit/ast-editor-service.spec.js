@@ -24,6 +24,8 @@ describe('ast editor service unit tests', () => {
     let previews = [];
 
     describe('read ast (non-recursive)', () => {
+        let progressUpdates = [];
+
         before((done) => {
             astEditorService.eventEmitter.on('preview', (data) => {
                 previews.push(data);
@@ -36,17 +38,34 @@ describe('ast editor service unit tests', () => {
 
             console.time('read');
 
+            astEditorService.eventEmitter.on('progress', (value) => {
+                progressUpdates.push(value);
+            });
+
             astEditorService.readAST(hc09BootPath, false, true, 0)
                 .then((astFile) => {
                     console.timeEnd('read');
+                    astEditorService.eventEmitter.removeAllListeners('progress');
                     result = astFile;
-                })
+                });
         });
 
         baseBootASTTests();
 
         it('does not read children if recursive read is set to false', () => {
             expect(result.tocs[0xe].file).to.be.undefined;
+        });
+
+        it('will emit progress while reading a node', function () {
+            this.timeout(3000);
+
+            const numberOfTocs = result.tocs.length;
+
+            let expectedProgressUpdates = result.tocs.map((toc, index) => {
+                return Math.floor(((index+1) / numberOfTocs) * 100);
+            });
+
+            expect(progressUpdates).to.eql(expectedProgressUpdates);
         });
 
         describe('previews', () => {
@@ -76,12 +95,17 @@ describe('ast editor service unit tests', () => {
         describe('can read a child AST after reading in the root', () => {
             let childAst = null;
             let childPreviews = [];
+            let childProgressUpdates = [];
 
             before((done) => {
                 let promises = [];
 
                 astEditorService.readAST(hc09BootPath, false, true, 0)
                     .then(() => {
+                        astEditorService.eventEmitter.on('progress', (value) => {
+                            childProgressUpdates.push(value);
+                        });
+
                         promises.push(new Promise((resolve, reject) => {
                             astEditorService.eventEmitter.on('preview', (data) => {
                                 childPreviews.push(data);
@@ -102,6 +126,7 @@ describe('ast editor service unit tests', () => {
                         Promise.all(promises)
                             .then(() => {
                                 astEditorService.eventEmitter.removeAllListeners('preview');
+                                astEditorService.eventEmitter.removeAllListeners('progress');
                                 done();
                             });
                     });
@@ -120,6 +145,13 @@ describe('ast editor service unit tests', () => {
             it('APT', () => {
                 const thirdIndex = childAst.tocs.find((toc) => { return toc.index === 2; });
                 expect(thirdIndex.fileExtension).to.eql('apt');
+            });
+
+            it('will emit progress while reading a child node', function () {
+                this.timeout(3000);
+    
+                let expectedProgressUpdates = [25, 50, 75, 100];
+                expect(childProgressUpdates).to.eql(expectedProgressUpdates);
             });
 
             describe('previews', () => {
