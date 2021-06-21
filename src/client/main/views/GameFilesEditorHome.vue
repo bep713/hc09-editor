@@ -164,13 +164,11 @@ export default {
                     this.setTableBaseModelAfterLoad = false;
                 }
 
-                console.log('read done');
-                this.isReading = false;
-                this.progressValue = 0;
-
                 if (this.previewsDone) {
                     this.setPreviews();
                 }
+                
+                this.isReading = false;
             }
 
             this.isTreeViewerLoading = false;
@@ -238,7 +236,16 @@ export default {
         });
 
         messageUI.on('set-progress-value', (_, res) => {
-            this.progressValue = res.value;
+            let value = res.value;
+
+            if (value === 100) {
+                // the UI might take awhile to build the DOM, so never
+                // display progress as 100%, show as 99% until everything
+                // is loaded. Then just remove the spinner.
+                value = 99;
+            }
+
+            this.progressValue = value;
             this.progressMessage = res.message;
         });
 
