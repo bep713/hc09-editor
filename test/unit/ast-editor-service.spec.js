@@ -736,7 +736,6 @@ describe('ast editor service unit tests', () => {
                     astEditorService.eventEmitter.once('preview', (data) => {
                         expect(data.key).to.equal('0_648_17');
                         expect(data.preview.substring(0, 23)).to.equal('data:image/webp;base64,');
-                        done();
                     });
 
                     astEditorService.importNode(pathToNodeToImport, 
@@ -746,7 +745,10 @@ describe('ast editor service unit tests', () => {
                     {
                         'shouldCompressFile': false,
                         'forceExtractPreview': true
-                    });
+                    })
+                        .then(() => {
+                            done();
+                        })
                 })
         });
     });
