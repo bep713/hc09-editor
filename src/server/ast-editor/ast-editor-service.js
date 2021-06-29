@@ -184,6 +184,31 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                 else if (chunk[0] === 0x89 && chunk[1] === 0x50 && chunk[2] === 0x4E && chunk[3] === 0x47) {
                                     fileExtension = 'png';
                                 }
+                                else if (chunk[0] === 0x54 && chunk[1] === 0x45 && chunk[2] === 0x52 && chunk[3] === 0x46) {
+                                    fileExtension = 'terf';
+                                }
+                                else if (chunk[0] === 0x43 && chunk[1] === 0x53 && chunk[2] === 0x4E && chunk[3] === 0x41) {
+                                    fileExtension = 'csna';
+                                }
+                                else if (chunk[0] === 0x4C && chunk[1] === 0x4F && chunk[2] === 0x43 && chunk[3] === 0x48) {
+                                    fileExtension = 'loch';
+                                }
+                                else if (chunk[0] === 0x53 && chunk[1] === 0x45 && chunk[2] === 0x56 && chunk[3] === 0x54) {
+                                    fileExtension = 'sevt';
+                                }
+                                else if (chunk[0] === 0x72 && chunk[1] === 0x62 && chunk[2] === 0x61 && chunk[3] === 0x73) {
+                                    fileExtension = 'rbas';
+                                }
+                                else if (chunk[0] === 0x4D && chunk[1] === 0x56 && chunk[2] === 0x68 && chunk[3] === 0x64) {
+                                    fileExtension = 'mvhd';
+                                }
+                                else if (chunk.length > 16 && (chunk.readUInt32BE(0xC) === 0x47444546 || chunk.readUInt32BE(0xC) === 0x4C545348 
+                                    || chunk.readUInt32BE(0xC) === 0x44534947)) {
+                                    fileExtension = 'otf';
+                                }
+                                else if (chunk.length > 4 && chunk.readUInt32BE(0) === 0x58464E52) {
+                                    fileExtension = 'xfnr';
+                                }
                                 else {
                                     fileExtension = 'dat';
                                 }

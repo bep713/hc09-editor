@@ -72,7 +72,14 @@ const exportFileFilters = [
     { name: 'PNG', extensions: ['png'] },
     { name: 'RSF', extensions: ['rsf'] },
     { name: 'SCHL', extensions: ['schl'] },
-    { name: 'XML', extensions: ['xml'] },
+    { name: 'TERF', extensions: ['terf'] },
+    { name: 'CSNA', extensions: ['csna'] },
+    { name: 'LOCH', extensions: ['loch'] },
+    { name: 'SEVT', extensions: ['sevt'] },
+    { name: 'RBAS', extensions: ['rbas'] },
+    { name: 'MVHD', extensions: ['mvhd'] },
+    { name: 'OTF', extensions: ['otf'] },
+    { name: 'XFNR', extensions: ['xfnr'] },
     { name: 'Any', extensions: ['*'] }
 ];
 
