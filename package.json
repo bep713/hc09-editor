@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "dxt-js": "0.0.3",
-    "madden-file-tools": "^2.4.6",
+    "madden-file-tools": "^2.4.7",
     "moment": "^2.29.1",
     "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",

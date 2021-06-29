@@ -47,11 +47,10 @@ app.once('ready', () => {
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
-
-    api.initializeListeners(mainWindow);
-
+    
     Promise.all([makeUserDataFolderPromise])
-        .then(() => {
+    .then(() => {
+            api.initializeListeners(mainWindow);
             mainWindow.loadFile(path.join(__dirname, './client/main/dist/index.html'));
         })
         .catch((err) => {

@@ -132,6 +132,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
         parser.extract = true;
 
         parser.file.id = uuid();
+        let completedPromises = 0;
 
         parser.on('compressed-file', (astData) => {
             if (!readPathAfterRoot || readPathAfterRoot.length === 0 || (readPathAfterRoot && astData.toc.index == readPathAfterRoot[0])) {
@@ -183,6 +184,31 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                 else if (chunk[0] === 0x89 && chunk[1] === 0x50 && chunk[2] === 0x4E && chunk[3] === 0x47) {
                                     fileExtension = 'png';
                                 }
+                                else if (chunk[0] === 0x54 && chunk[1] === 0x45 && chunk[2] === 0x52 && chunk[3] === 0x46) {
+                                    fileExtension = 'terf';
+                                }
+                                else if (chunk[0] === 0x43 && chunk[1] === 0x53 && chunk[2] === 0x4E && chunk[3] === 0x41) {
+                                    fileExtension = 'csna';
+                                }
+                                else if (chunk[0] === 0x4C && chunk[1] === 0x4F && chunk[2] === 0x43 && chunk[3] === 0x48) {
+                                    fileExtension = 'loch';
+                                }
+                                else if (chunk[0] === 0x53 && chunk[1] === 0x45 && chunk[2] === 0x56 && chunk[3] === 0x54) {
+                                    fileExtension = 'sevt';
+                                }
+                                else if (chunk[0] === 0x72 && chunk[1] === 0x62 && chunk[2] === 0x61 && chunk[3] === 0x73) {
+                                    fileExtension = 'rbas';
+                                }
+                                else if (chunk[0] === 0x4D && chunk[1] === 0x56 && chunk[2] === 0x68 && chunk[3] === 0x64) {
+                                    fileExtension = 'mvhd';
+                                }
+                                else if (chunk.length > 16 && (chunk.readUInt32BE(0xC) === 0x47444546 || chunk.readUInt32BE(0xC) === 0x4C545348 
+                                    || chunk.readUInt32BE(0xC) === 0x44534947)) {
+                                    fileExtension = 'otf';
+                                }
+                                else if (chunk.length > 4 && chunk.readUInt32BE(0) === 0x58464E52) {
+                                    fileExtension = 'xfnr';
+                                }
                                 else {
                                     fileExtension = 'dat';
                                 }
@@ -212,7 +238,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                     let tempStoreStream = new Readable();
                     tempStoreStream._read = () => {};
     
-                    const isNotCompressed = astData.toc.uncompressedSize.length === 0 || astData.toc.uncompressedSizeInt === 0;
+                    const isNotCompressed = !(astData.toc.isCompressed);
                     let pipes = [];
     
                     if (isNotCompressed) {
@@ -221,7 +247,14 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             fileExtensionPicker,
                             new Transform({
                                 transform(chunk, enc, cb) {
-                                    newASTStream.push(chunk);
+                                    if (recursiveRead || (readPathAfterRoot && readPathAfterRoot.length > 0)) {
+                                        newASTStream.push(chunk);
+                                    }
+
+                                    if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
+                                        tempStoreStream.push(chunk);
+                                    }
+
                                     cb();
                                 }
                             }),
@@ -234,9 +267,11 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                             fileExtensionPicker,
                             new Transform({
                                 transform(chunk, enc, cb) {
-                                    newASTStream.push(chunk);
+                                    if (recursiveRead || (readPathAfterRoot && readPathAfterRoot.length > 0)) {
+                                        newASTStream.push(chunk);
+                                    }
     
-                                    if (extractPreviews) {
+                                    if (extractPreviews && (fileExtension === 'dds' || fileExtension === 'p3r')) {
                                         tempStoreStream.push(chunk);
                                     }
     
@@ -250,6 +285,7 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                         ...pipes,
                         (err) => {
                             if (err) {
+                                log.error('Error at index: ' + astData.toc.index.toString(16) + ', start position in file: ' + astData.toc.startPositionInFile);
                                 reject(err);
                             }
     
@@ -315,6 +351,8 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                                         });
                                 }
                                 else {
+                                    completedPromises += 1;
+                                    astService.eventEmitter.emit('progress', Math.floor((completedPromises / parser.file.tocs.length) * 100));
                                     resolve(parser.file);
                                 }
                             // })
@@ -333,11 +371,15 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
                     reject(err);
                 }
 
+                log.info('Number of promises: ' + readASTCompressedFilePromises.length.toString(16));
+
                 Promise.all(readASTCompressedFilePromises)
                     .then(() => {
+                        log.info('read done');
                         resolve(parser.file);
                     })
                     .catch((err) => {
+                        log.info('error: ' + err);
                         reject(err);
                     })
 

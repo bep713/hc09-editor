@@ -72,7 +72,14 @@ const exportFileFilters = [
     { name: 'PNG', extensions: ['png'] },
     { name: 'RSF', extensions: ['rsf'] },
     { name: 'SCHL', extensions: ['schl'] },
-    { name: 'XML', extensions: ['xml'] },
+    { name: 'TERF', extensions: ['terf'] },
+    { name: 'CSNA', extensions: ['csna'] },
+    { name: 'LOCH', extensions: ['loch'] },
+    { name: 'SEVT', extensions: ['sevt'] },
+    { name: 'RBAS', extensions: ['rbas'] },
+    { name: 'MVHD', extensions: ['mvhd'] },
+    { name: 'OTF', extensions: ['otf'] },
+    { name: 'XFNR', extensions: ['xfnr'] },
     { name: 'Any', extensions: ['*'] }
 ];
 
@@ -163,11 +170,11 @@ export default {
                     this.setTableBaseModelAfterLoad = false;
                 }
 
-                console.log('read done');
-
                 if (this.previewsDone) {
                     this.setPreviews();
                 }
+                
+                this.isReading = false;
             }
 
             this.isTreeViewerLoading = false;
@@ -235,7 +242,16 @@ export default {
         });
 
         messageUI.on('set-progress-value', (_, res) => {
-            this.progressValue = res.value;
+            let value = res.value;
+
+            if (value === 100) {
+                // the UI might take awhile to build the DOM, so never
+                // display progress as 100%, show as 99% until everything
+                // is loaded. Then just remove the spinner.
+                value = 99;
+            }
+
+            this.progressValue = value;
             this.progressMessage = res.message;
         });
 
@@ -309,7 +325,7 @@ export default {
         },
 
         longRunningActionIsRunning() {
-            return this.isExporting || this.isImporting;
+            return this.isExporting || this.isImporting || this.isReading;
         }
     },
     data() {
@@ -323,6 +339,7 @@ export default {
             showHelp: false,
             recentFiles: [],
             expandedRows: [],
+            isReading: false,
             expandedKeys: {},
             progressValue: 0,
             selectedKey: null,
@@ -403,6 +420,7 @@ export default {
                 }
 
                 this.previewsDone = false;
+                this.isReading = true;
 
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,
@@ -431,6 +449,7 @@ export default {
                 }
 
                 this.previewsDone = false;
+                this.isReading = true;
 
                 messageUI.send('get-ast-child-nodes', {
                     rootNode: rootNode,

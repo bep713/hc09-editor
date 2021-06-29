@@ -12,12 +12,10 @@ const dbApi = require('./db');
 
 let helper;
 
-recentFileService.initialize();
-changedNodeService.initialize();
-dbApi.initialize(recentFileService);
-
 module.exports.initializeListeners = function (mainWindow) {
-    dbApi.initializeListeners(mainWindow);
+    recentFileService.initialize();
+    changedNodeService.initialize();
+    dbApi.initialize();
 
     ipcMain.on('get-version', () => {
         mainWindow.webContents.send('get-version', app.getVersion());

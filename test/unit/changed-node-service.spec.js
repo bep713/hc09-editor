@@ -48,6 +48,10 @@ const changedNodeService = proxyquire('../../src/server/changed-node-service', {
 });
 
 describe('changed node service unit tests', () => {
+    before(() => {
+        changedNodeService.initialize();
+    });
+    
     beforeEach(() => {
         fsMock.existsSync.resetHistory();
         fsMock.mkdirSync.resetHistory();
