@@ -304,7 +304,7 @@ export default {
             }
         });
 
-        messageUI.send('get-recent-ast-files');
+        messageUI.send('get-recent-ast-files'); 
     },
     computed: {
         tableModel() {

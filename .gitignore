@@ -64,3 +64,4 @@ scripts/
 dist/
 log/
 !lib/deskgap/dist
+lib/deskgap/dist/Deskgap/*.WebView2

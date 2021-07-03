@@ -15,7 +15,8 @@ let helper;
 module.exports.initializeListeners = function (mainWindow) {
     recentFileService.initialize();
     changedNodeService.initialize();
-    dbApi.initialize();
+    dbApi.initialize(recentFileService);
+    dbApi.initializeListeners(mainWindow);
 
     ipcMain.on('get-version', () => {
         mainWindow.webContents.send('get-version', app.getVersion());

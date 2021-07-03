@@ -126,7 +126,6 @@ $menu-item-width: 14em;
 
         .menu-item--content {
             font-size: 22px;
-            margin-bottom: -2px;
             color: #E6E6E6;
         }
 
@@ -219,9 +218,8 @@ $menu-item-width: 14em;
     text-transform: uppercase;
     font-weight: bold;
     z-index: 2;
-    text-shadow: 1px 1px 3px black;
-    font-family: 'TeXGyreHeros';
-    margin-bottom: -1px;
+    text-shadow: 2px 1px 3px black;
+    font-family: 'HCHelvetica';
     color: #999;
 }
 
