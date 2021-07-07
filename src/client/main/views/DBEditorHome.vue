@@ -11,9 +11,9 @@
                         @nodeSelect="onTableSelect" :filter="true" filterMode="lenient"></Tree>
                 </SplitterPanel>
                 <SplitterPanel :size="80" style="overflow: auto;">
-                    <DBEditorDataTable v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
-                        :isLoading="tableIsLoading" :selectedTableName="selectedTable.label" 
-                        @onPage="onPage($event)" />
+                    <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
+                        :isLoading="tableIsLoading" :selectedTableName="selectedTableName" 
+                        @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)" />
                 </SplitterPanel>
             </Splitter>
         </div>
@@ -77,12 +77,12 @@ export default {
                 });
             }
             else {
-                console.log('response');
-                if (res.result.totalRecords > 0) {
-                    this.dbModel = res.result.filteredRecords;
-                    this.totalRecords = res.result.totalRecords;
-                }
+                this.dbModel = res.result.filteredRecords;
+                this.totalRecords = res.result.totalRecords;
+                this.selectedTableName = this.selectedTable.label;
             }
+
+            this.tableIsLoading = false;
         });
 
         messageUI.send('db:get-recent-files');
@@ -103,8 +103,10 @@ export default {
             treeModel: null,
             totalRecords: 0,
             selectedTable: null,
+            dbRowsToDisplay: 10,
             tableIsLoading: false,
             selectedTableKey: null,
+            selectedTableName: null,
         }
     },
     methods: {
@@ -140,15 +142,47 @@ export default {
         },
 
         onTableSelect(node) {
+            this.tableIsLoading = true;
             this.selectedTable = node;
-            this.getRecords(node.label);
+            this.getRecords(node.label, {
+                'recordCount': this.dbRowsToDisplay
+            });
         },
 
         onPage(event) {
-            this.getRecords(this.selectedTable.label, {
+            console.log('page', event);
+            this.tableIsLoading = true;
+            this.dbRowsToDisplay = event.rows;
+
+            let recordOptions = {
                 'recordCount': event.rows,
                 'startIndex': event.first
-            });
+            };
+
+            if (event.sortField && event.sortField !== 'index') {
+                recordOptions.sort = {
+                    'field': event.sortField,
+                    'order': event.sortOrder === 1 ? 'asc' : 'desc'
+                }
+            }
+
+            if (event.filters) {
+                recordOptions.filter = {};
+ 
+                Object.keys(event.filters).forEach((filterKey) => {
+                    const filterOnTable = event.filters[filterKey];
+
+                    const filterNotNull = filterOnTable.constraints.find((constraint) => {
+                        return constraint.value !== null;
+                    });
+
+                    if (filterNotNull) {
+                        recordOptions.filter[filterKey] = filterOnTable;
+                    }
+                });
+            }
+
+            this.getRecords(this.selectedTable.label, recordOptions);
         },
 
         getRecords(tableName, options) {

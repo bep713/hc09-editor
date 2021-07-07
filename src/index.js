@@ -8,7 +8,7 @@ const { app, BrowserWindow } = require('deskgap');
 const isDev = process.env.NODE_ENV === 'development';
 
 if (isDev) {
-    require('./util/livereload')(path.join(__dirname, './client'));
+    require('./util/livereload')(path.join(__dirname, './client/main/dist'));
 }
 
 let mainWindow;

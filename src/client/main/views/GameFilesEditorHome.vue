@@ -733,4 +733,8 @@ export default {
     .p-dialog {
         max-width: 95%;
     }
+
+    div.p-tree .p-tree-container .p-treenode .p-treenode-content {
+        padding: 0.25rem;
+    }
 </style>

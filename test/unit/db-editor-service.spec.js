@@ -123,5 +123,375 @@ describe('db editor service unit tests', () => {
 
             expect(totalRecords).to.equal(36);
         });
+
+        
+        describe('sort', () => {
+            it('will read the entire table even if a record count is supplied (needed for sorting/filtering)', async () => {
+                await dbEditorService.getTableData('TEAM', {
+                    'recordCount': 5,
+                    'startIndex': 5
+                });
+    
+                expect(dbEditorService.activeDbHelper.file['TEAM'].records.length).to.equal(36);
+            });
+            
+            it('returns expected amount of records with sort parameters passed in', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.totalRecords).to.equal(36);
+                expect(sortedData.filteredRecords.length).to.equal(36);
+            });
+
+            it('can sort by a field ascending', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords[0].SID1).to.equal(35);
+                expect(sortedData.filteredRecords[1].SID1).to.equal(46);
+                expect(sortedData.filteredRecords[2].SID1).to.equal(127);
+            });
+
+            it('can sort by a field descending', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'desc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords[0].SID1).to.equal(127);
+                expect(sortedData.filteredRecords[34].SID1).to.equal(46);
+                expect(sortedData.filteredRecords[35].SID1).to.equal(35);
+            });
+
+            it('can return unsorted results after sorting', async () => {
+                await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                const unsortedResults = await dbEditorService.getTableData('TEAM');
+
+                expect(unsortedResults.filteredRecords[0].SID1).to.equal(127);
+                expect(unsortedResults.filteredRecords[1].SID1).to.equal(127);
+                expect(unsortedResults.filteredRecords[2].SID1).to.equal(127);
+                expect(unsortedResults.filteredRecords[6].SID1).to.equal(46);
+            });
+
+            it('can return partial results with sorting', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'recordCount': 5,
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords.length).to.equal(5);
+                expect(sortedData.filteredRecords[0].SID1).to.equal(35);
+                expect(sortedData.filteredRecords[1].SID1).to.equal(46);
+                expect(sortedData.filteredRecords[2].SID1).to.equal(127);
+            });
+
+            it('can specify a start index with sorting', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'startIndex': 10,
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords.length).to.equal(26);
+                expect(sortedData.filteredRecords[0].SID1).to.equal(127);
+                expect(sortedData.filteredRecords[1].SID1).to.equal(127);
+            });
+
+            it('can specify a start index and record count with sorting', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'startIndex': 10,
+                    'recordCount': 5,
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords.length).to.equal(5);
+                expect(sortedData.filteredRecords[0].SID1).to.equal(127);
+                expect(sortedData.filteredRecords[1].SID1).to.equal(127);
+            });
+
+            it('can sort text fields desc', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'TDNA',
+                        'order': 'desc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords[0].TDNA).to.equal('Vikings');
+                expect(sortedData.filteredRecords[1].TDNA).to.equal('Titans');
+                expect(sortedData.filteredRecords[2].TDNA).to.equal('Texans');
+            });
+
+            it('can sort text fields asc', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'TLNA',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.filteredRecords[0].TLNA).to.equal('Arizona');
+                expect(sortedData.filteredRecords[1].TLNA).to.equal('Atlanta');
+                expect(sortedData.filteredRecords[2].TLNA).to.equal('Baltimore');
+            });
+        });
+
+        describe('filtering', () => {
+            describe('text filters', () => {
+                it('equals', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'Bears', matchMode: 'equals'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(1);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                });
+    
+                it('contains', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'Bear', matchMode: 'contains'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(1);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                });
+    
+                it('starts with', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'Bea', matchMode: 'startsWith'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(1);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                });
+    
+                it('ends with', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'ars', matchMode: 'endsWith'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(2);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                    expect(data.filteredRecords[1].TDNA).to.equal('Jaguars');
+                });
+    
+                it('not equals', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'Bears', matchMode: 'notEquals'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(35);
+                });
+    
+                it('not contains', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TDNA': { operator: 'and', constraints: [{value: 'Bea', matchMode: 'notContains'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(35);
+                });
+            });
+
+            describe('number filters', () => {
+                it('equals', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ2': { operator: 'and', constraints: [{value: '1', matchMode: 'equals'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(1);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                });
+
+                it('not equals', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ2': { operator: 'and', constraints: [{value: '1', matchMode: 'notEquals'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(35);
+                });
+
+                it('less than', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ1': { operator: 'and', constraints: [{value: '1', matchMode: 'lt'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(1);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                });
+
+                it('less than or equal to', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ1': { operator: 'and', constraints: [{value: '1', matchMode: 'lte'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(2);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                    expect(data.filteredRecords[1].TDNA).to.equal('Bengals');
+                });
+
+                it('greater than', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ1': { operator: 'and', constraints: [{value: '31', matchMode: 'gt'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(4);
+                    expect(data.filteredRecords[0].TDNA).to.equal('HOF Unlocked');
+                    expect(data.filteredRecords[1].TDNA).to.equal('Free Agents');
+                    expect(data.filteredRecords[2].TDNA).to.equal('Draft');
+                    expect(data.filteredRecords[3].TDNA).to.equal('Hall Of Fame');
+                });
+
+                it('greater than or equal to', async () => {
+                    const data = await dbEditorService.getTableData('TEAM', {
+                        'filter': {
+                            'TEZ1': { operator: 'and', constraints: [{value: '31', matchMode: 'gte'}] }
+                        }
+                    });
+    
+                    expect(data.filteredRecords.length).to.equal(5);
+                    expect(data.filteredRecords[0].TDNA).to.equal('Texans');
+                    expect(data.filteredRecords[1].TDNA).to.equal('HOF Unlocked');
+                    expect(data.filteredRecords[2].TDNA).to.equal('Free Agents');
+                    expect(data.filteredRecords[3].TDNA).to.equal('Draft');
+                    expect(data.filteredRecords[4].TDNA).to.equal('Hall Of Fame');
+                });
+            });
+
+            it('filters are not case sensitive', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'and', constraints: [{value: 'bears', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(1);
+                expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+            });
+
+            it('total record count is the same as filtered record count', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'and', constraints: [{value: 'bears', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.totalRecords).to.equal(1);
+                expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+            });
+
+            it('supports multiple filters on a single field (and)', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'and', constraints: [{value: 'Jag', matchMode: 'startsWith'}, {value: 'ars', matchMode: 'endsWith'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(1);
+                expect(data.filteredRecords[0].TDNA).to.equal('Jaguars');
+            });
+
+            it('supports multiple filters on a single field (or)', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'Browns', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(3);
+                expect(data.filteredRecords[0].TDNA).to.equal('Bears');
+                expect(data.filteredRecords[1].TDNA).to.equal('Jaguars');
+                expect(data.filteredRecords[2].TDNA).to.equal('Browns');
+            });
+
+            it('supports multiple column filters', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'Browns', matchMode: 'equals'}] },
+                        'TLNA': { operator: 'or', constraints: [{value: 'Cleveland', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(1);
+                expect(data.filteredRecords[0].TDNA).to.equal('Browns');
+            });
+
+            it('supports multiple column filters - empty case 1', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'Browns', matchMode: 'equals'}] },
+                        'TLNA': { operator: 'or', constraints: [{value: 'Atlanta', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(0);
+            });
+
+            it('supports multiple column filters - empty case 2', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'FakeTeam', matchMode: 'equals'}] },
+                        'TLNA': { operator: 'or', constraints: [{value: 'Cleveland', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(0);
+            });
+
+            it('ignores column names that do not exist', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'FAKE': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'FakeTeam', matchMode: 'equals'}] },
+                    }
+                });
+
+                expect(data.filteredRecords.length).to.equal(0);
+            });
+        });
     });
 });

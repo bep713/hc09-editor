@@ -7,7 +7,6 @@ dbService.activeDbHelper = null;
 
 dbService.openFile = async (filePath) => {
     dbService.activeDbHelper = new TDBHelper();
-    log.info(filePath);
     await dbService.activeDbHelper.load(filePath);
 };
 
@@ -31,13 +30,98 @@ dbService.getTableData = async (tableName, options) => {
     }
 
     let records = table.records;
+    let recordCount = table.records.length;
 
     if (options) {
-        if (options.startIndex) {
+        if (options.sort !== undefined && options.sort.field && options.sort.order) {
+            records.sort((a, b) => {
+                const aValue = a.fields[options.sort.field].value;
+                const bValue = b.fields[options.sort.field].value;
+
+                if (aValue < bValue) {
+                    return options.sort.order === 'asc' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return options.sort.order === 'asc' ? 1 : -1;
+                }
+
+                return 0;
+            });
+        }
+
+        if (options.filter !== undefined) {
+
+            Object.keys(options.filter).forEach((filterKey) => {
+                const currentFilter = options.filter[filterKey];
+                let tempFilterResults = [];
+
+                if (currentFilter.operator === 'and') {
+                    tempFilterResults = records;
+                }
+
+                currentFilter.constraints.forEach((constraint) => {
+                    if (currentFilter.operator === 'and') {
+                        tempFilterResults = filterValue(tempFilterResults, filterKey, constraint);
+                    }
+                    else {
+                        const result = filterValue(records, filterKey, constraint);
+                        tempFilterResults = tempFilterResults.concat(result);
+                    }
+                });
+
+                records = tempFilterResults;
+                recordCount = records.length;
+            });
+
+            function filterValue(arrayToFilter, filterKey, constraint) {
+                return arrayToFilter.filter((record) => {
+                    let field = record.fields[filterKey];
+
+                    if (field !== undefined) {
+                        let value = getLowerCaseIfApplicable(field.value);
+                        let filterValue = getLowerCaseIfApplicable(constraint.value);
+
+                        switch(constraint.matchMode) {
+                            case 'equals':
+                                return value == filterValue;
+                            case 'contains':
+                                return value.indexOf(filterValue) > -1;
+                            case 'startsWith':
+                                return value.startsWith(filterValue);
+                            case 'endsWith':
+                                return value.endsWith(filterValue);
+                            case 'notEquals':
+                                return value != filterValue;
+                            case 'notContains':
+                                return value.indexOf(filterValue) === -1;
+                            case 'lt':
+                                return value < filterValue;
+                            case 'lte':
+                                return value <= filterValue;
+                            case 'gt':
+                                return value > filterValue;
+                            case 'gte':
+                                return value >= filterValue;
+                        }
+                    }
+                });
+            };
+
+            function getLowerCaseIfApplicable(value) {
+                if (typeof value === 'string' || value instanceof String) {
+                    return value.toLowerCase();
+                }
+                else {
+                    return value;
+                }
+            };
+        }
+
+        if (options.startIndex !== undefined) {
             records = records.slice(options.startIndex);
         }
 
-        if (options.recordCount) {
+        if (options.recordCount !== undefined) {
             records = records.slice(0, options.recordCount);
         }
     }
@@ -52,7 +136,7 @@ dbService.getTableData = async (tableName, options) => {
 
             return obj;
         }),
-        'totalRecords': table.records.length
+        'totalRecords': recordCount
     };
 };
 

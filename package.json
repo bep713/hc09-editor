@@ -37,7 +37,7 @@
     "moment": "^2.29.1",
     "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",
-    "primevue": "^3.3.5",
+    "primevue": "^3.5.1",
     "sharp": "^0.28.3",
     "uuid": "^8.3.2",
     "vue": "^3.0.11",
