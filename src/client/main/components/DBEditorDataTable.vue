@@ -15,8 +15,8 @@
             </template>
 
             <Column v-for="col of selectedColumns" :field="col.field" :header="col.field" :key="col.field" :sortable="true" :dataType="col.type" style="min-width: 125px;">
-                <template #filter="{filterModel}">
-                    <InputText type="text" v-model="filterModel.value" class="p-column-filter" placeholder="Search..." />
+                <template #filter="{filterModel, filterCallback}">
+                    <InputText type="text" v-model="filterModel.value" class="p-column-filter" placeholder="Search..."  @keydown.enter="filterCallback()" />
                 </template>
             </Column>
         </DataTable>
