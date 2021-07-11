@@ -2,18 +2,22 @@
     <div class="db-editor-wrapper">
         <div class="filter-buttons-wrapper">
             <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
-            <Button label="Open DB file" @click="onOpenDBFileClicked" />
+            <Button label="Open DB file" @click="onOpenDBFileClicked" v-if="!treeModel" />
+            <Button label="Close DB file" class="p-button-outlined" @click="onCloseDBFileClicked" v-else />
         </div>
         <div class="db-editor-data-table-wrapper" v-if="treeModel">
             <Splitter layout="horizontal">
-                <SplitterPanel :size="20">
-                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedTableKey"
+                <SplitterPanel :size="15"> 
+                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedTableKey" scrollHeight="flex"
                         @nodeSelect="onTableSelect" :filter="true" filterMode="lenient"></Tree>
-                </SplitterPanel>
-                <SplitterPanel :size="80" style="overflow: auto;">
-                    <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
-                        :isLoading="tableIsLoading" :selectedTableName="selectedTableName" 
-                        @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)" />
+                </SplitterPanel> 
+                <SplitterPanel :size="85" style="overflow: auto;">
+                    <div class="db-table-wrapper">
+                        <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
+                            :isLoading="tableIsLoading" :selectedTableName="selectedTableName" 
+                            @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)"
+                            @export="onExport($event)" @import="onImport($event)" />
+                    </div>
                 </SplitterPanel>
             </Splitter>
         </div>
@@ -68,6 +72,8 @@ export default {
         });
 
         messageUI.on('db:get-records', (_, res) => {
+            this.isReading = false;
+
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -81,8 +87,55 @@ export default {
                 this.totalRecords = res.result.totalRecords;
                 this.selectedTableName = this.selectedTable.label;
             }
+        });
 
-            this.tableIsLoading = false;
+        messageUI.on('db:export-table', (_, res) => {
+            this.isExporting = false;
+
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Could not export the table', 
+                    detail: 'The table could not be exported. Please try again later.',
+                    life: 4000
+                });
+            }
+            else {
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'Table exported successfully', 
+                    detail: 'The table has been exported to ' + res.exportLocation + '.',
+                    life: 4000
+                });
+            }
+        });
+
+        messageUI.on('db:import-table', (_, res) => {
+            if (this.lastImportEvent) {
+                this.isReading = true;
+                this.onPage(this.lastImportEvent);
+            }
+            
+            this.isImporting = false;
+
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Could not export the table', 
+                    detail: 'The table could not be exported. Please try again later.',
+                    life: 4000
+                });
+            }
+            else {
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'Table imported successfully', 
+                    detail: 'The table has been imported and the data has been refreshed.',
+                    life: 4000
+                });
+
+
+            }
         });
 
         messageUI.send('db:get-recent-files');
@@ -96,15 +149,23 @@ export default {
         RecentFilesList,
         DBEditorDataTable
     },
+    computed: {
+        tableIsLoading() {
+            return this.isReading || this.isExporting || this.isImporting;
+        }
+    },
     data() {
         return {
             dbModel: null,
             recentFiles: [],
             treeModel: null,
             totalRecords: 0,
+            isReading: false,
+            isExporting: false,
+            isImporting: false,
             selectedTable: null,
             dbRowsToDisplay: 10,
-            tableIsLoading: false,
+            lastImportEvent: null,
             selectedTableKey: null,
             selectedTableName: null,
         }
@@ -129,6 +190,10 @@ export default {
             })
         },
 
+        onCloseDBFileClicked() {
+            this.treeModel = null;
+        },
+
         onDBFileSelected(path) {
             messageUI.send('db:open-file', path);
         },
@@ -142,7 +207,7 @@ export default {
         },
 
         onTableSelect(node) {
-            this.tableIsLoading = true;
+            this.isReading = true;
             this.selectedTable = node;
             this.getRecords(node.label, {
                 'recordCount': this.dbRowsToDisplay
@@ -150,8 +215,7 @@ export default {
         },
 
         onPage(event) {
-            console.log('page', event);
-            this.tableIsLoading = true;
+            this.isReading = true;
             this.dbRowsToDisplay = event.rows;
 
             let recordOptions = {
@@ -190,23 +254,70 @@ export default {
                 tableName: tableName,
                 options: options
             });
+        },
+
+        onExport() {
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select export save location',
+                    filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePath) {
+                    this.isExporting = true;
+
+                    messageUI.send('db:export-table', {
+                        tableName: this.selectedTableName,
+                        options: {
+                            exportLocation: result.filePath
+                        }
+                    });
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
+        },
+
+        onImport(event) {
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select file to import',
+                    filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePaths) {
+                    this.isImporting = true;
+                    this.lastImportEvent = event;
+
+                    messageUI.send('db:import-table', {
+                        tableName: this.selectedTableName,
+                        options: {
+                            importLocation: result.filePaths[0]
+                        }
+                    });
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
         }
     },
     unmounted() {
         messageUI.removeAllListeners('db:get-recent-files');
         messageUI.removeAllListeners('db:open-file');
         messageUI.removeAllListeners('db:get-records');
+        messageUI.removeAllListeners('db:export-table');
+        messageUI.removeAllListeners('db:import-table');
     }
 }
 </script>
 
 <style lang="scss" scoped>
     .db-editor-wrapper {
-        margin: 20px;
+        margin: 10px;
     }
 
     .db-editor-data-table-wrapper {
-        height: calc(100vh - 110px);
+        height: calc(100vh - 74px);
     }
 
     .p-tree {
@@ -217,5 +328,9 @@ export default {
     .p-splitter {
         height: 100%;
         border: none;
+    }
+
+    .db-table-wrapper {
+        margin-left: 10px;
     }
 </style>

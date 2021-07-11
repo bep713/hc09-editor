@@ -52,6 +52,29 @@ dbApi.initializeListeners = (mainWindow) => {
             });
     });
 
+    ipcMain.on('db:export-table', (_, data) => {
+        dbEditorService.exportTable(data.tableName, data.options)
+            .then(() => {
+                const response = new EventResponse(true);
+                response.exportLocation = data.options.exportLocation;
+                mainWindow.webContents.send('db:export-table', response);
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'db:export-table');
+            });
+    });
+
+    ipcMain.on('db:import-table', (_, data) => {
+        dbEditorService.importTable(data.tableName, data.options)
+            .then(() => {
+                const response = new EventResponse(true);
+                mainWindow.webContents.send('db:import-table', response);
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'db:import-table');
+            });
+    });
+
     function sendErrorResponse(err, event) {
         log.error(err);
         const response = new EventResponse(false);

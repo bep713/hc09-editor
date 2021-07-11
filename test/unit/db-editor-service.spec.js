@@ -1,12 +1,61 @@
-const { expect } = require('chai');
 const fs = require('fs');
 const path = require('path');
+const xlsx = require('xlsx');
 const sinon = require('sinon');
-let dbEditorService = require('../../src/server/editors/db-editor-service');
+const { expect } = require('chai');
+const proxyquire = require('proxyquire');
+
+const importTestWb = xlsx.readFile(path.join(__dirname, '../data/db/import-test.csv'));
+const importTestSheetToJsonResponse = xlsx.utils.sheet_to_json(importTestWb.Sheets[importTestWb.SheetNames[0]], {
+    'raw': false
+});
+
+let xlsxMock = {
+    '_import': '',
+    'utils': {
+        'book_new': sinon.spy(() => { return true; }),
+        'json_to_sheet': sinon.spy(() => { return true; }),
+        'book_append_sheet': sinon.spy(() => { return true; }),
+        'sheet_to_json': sinon.spy(() => {
+            if (this._import === 'C:/fakepath/import-test') {
+                return importTestSheetToJsonResponse;
+            }
+            else {
+                return [{
+                    'RLSP': 1
+                }]; 
+            }
+        })
+    },
+    'readFile': sinon.spy((importLocation) => { 
+        this._import = importLocation;
+
+        return {
+            'Sheets': {
+                'test': true
+            },
+            'SheetNames': ['test']
+        };
+    }),
+    'writeFile': sinon.spy(() => { return true; })
+};
+
+let dbEditorService = proxyquire('../../src/server/editors/db-editor-service', {
+    'xlsx': xlsxMock
+});
 
 describe('db editor service unit tests', () => {
     before(async () => {
         await dbEditorService.openFile(path.join(__dirname, '../data/db/test.db'));
+    });
+
+    beforeEach(() => {
+        xlsxMock.utils.book_new.resetHistory();
+        xlsxMock.utils.json_to_sheet.resetHistory();
+        xlsxMock.utils.book_append_sheet.resetHistory();
+        xlsxMock.utils.sheet_to_json.resetHistory();
+        xlsxMock.writeFile.resetHistory();
+        xlsxMock.readFile.resetHistory();
     });
 
     describe('can open a DB file', () => {
@@ -492,6 +541,75 @@ describe('db editor service unit tests', () => {
 
                 expect(data.filteredRecords.length).to.equal(0);
             });
+        });
+    });
+
+    describe('can export table data', () => {
+        it('function exists', () => {
+            expect(dbEditorService.exportTable).to.exist;
+        });
+
+        it('attempts to write a file to the expected path', () => {
+            dbEditorService.exportTable('TEAM', {
+                'exportLocation': 'C:/fakepath'
+            });
+
+            expect(xlsxMock.writeFile.callCount).to.equal(1);
+            expect(xlsxMock.writeFile.firstCall.args[1]).to.equal('C:/fakepath');
+        });
+
+        it('transforms data to expected result', async () => {
+            await dbEditorService.getTableData('RDBS');
+
+            dbEditorService.exportTable('RDBS', {
+                'exportLocation': 'C:/fakepath'
+            });
+
+            expect(xlsxMock.utils.json_to_sheet.callCount).to.equal(1);
+            expect(xlsxMock.utils.json_to_sheet.firstCall.args[0].length).to.equal(2);
+            expect(xlsxMock.utils.json_to_sheet.firstCall.args[0][0]).to.eql(['RLSP']);
+            expect(xlsxMock.utils.json_to_sheet.firstCall.args[0][1]).to.eql([0]);
+        });
+    });
+
+    describe('can import data', () => {
+        it('function exists', () => {
+            expect(dbEditorService.importTable).to.exist;
+        });
+
+        it('reads the file at the expected file path', async () => {
+            await dbEditorService.importTable('RDBS', {
+                'importLocation': 'C:/fakepath'
+            });
+
+            expect(xlsxMock.readFile.callCount).to.equal(1);
+            expect(xlsxMock.readFile.firstCall.args[0]).to.equal('C:/fakepath');
+        });
+
+        it('overwrites the table data as expected', async () => {
+            await dbEditorService.getTableData('RDBS');
+
+            await dbEditorService.importTable('RDBS', {
+                'importLocation': 'C:/fakepath'
+            });
+
+            const newData = await dbEditorService.getTableData('RDBS');
+
+            expect(newData.filteredRecords[0].RLSP).to.equal(1);
+        });
+
+        it('overwrites table data - performance test', async function() {
+            this.timeout(60000);
+
+            await dbEditorService.getTableData('CSKL');
+
+            await dbEditorService.importTable('CSKL', {
+                'importLocation': 'C:/fakepath/import-test'
+            });
+
+            const newData = await dbEditorService.getTableData('CSKL');
+            
+            expect(newData.filteredRecords[1].SKID).to.equal(5);
         });
     });
 });

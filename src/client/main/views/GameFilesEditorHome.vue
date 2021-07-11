@@ -717,7 +717,7 @@ export default {
 
 <style lang="scss">
     .filter-buttons-wrapper {
-        margin-bottom: 30px;
+        margin-bottom: 15px;
 
         button {
             + button {

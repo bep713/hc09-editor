@@ -1,5 +1,10 @@
+const fs = require('fs');
+const xlsx = require('xlsx');
+const crypto = require('crypto');
 const log = require('../../util/logger');
 const TDBHelper = require('madden-file-tools/helpers/TDBHelper');
+
+const { BitView } = require('bit-buffer');
 
 let dbService = {};
 
@@ -138,6 +143,60 @@ dbService.getTableData = async (tableName, options) => {
         }),
         'totalRecords': recordCount
     };
+};
+
+dbService.exportTable = async (tableName, options) => {
+    if (!options.exportLocation) {
+        return;
+    }
+
+    const table = dbService.activeDbHelper.file[tableName];
+
+    let headers = table.fieldDefinitions.map((fieldDef) => {
+        return fieldDef.name;
+    });
+
+    const data = table.records.map((record) => {
+        return Object.keys(record.fields).map((fieldKey) => { 
+            const field = record.fields[fieldKey];
+            return field.value;
+        });
+    });
+
+    let wb = xlsx.utils.book_new();
+
+    const ws = xlsx.utils.json_to_sheet([headers].concat(data), {
+        'skipHeader': true
+    });
+
+    xlsx.utils.book_append_sheet(wb, ws);
+
+    try {
+        xlsx.writeFile(wb, options.exportLocation);
+    }
+    catch (err) {
+        log.error(err);
+        throw err;
+    }
+
+    return true;
+};
+
+dbService.importTable = async (tableName, options) => {
+    const wb = xlsx.readFile(options.importLocation);
+    const rawSheetData = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
+        'raw': false
+    });
+
+    let table = dbService.activeDbHelper.file[tableName];
+
+    rawSheetData.forEach((row, index) => {
+        let record = table.records[index];
+
+        Object.keys(row).forEach((fieldKey) => {
+            record.fields[fieldKey].value = row[fieldKey];
+        });
+    });
 };
 
 module.exports = dbService;
