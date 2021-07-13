@@ -199,4 +199,27 @@ dbService.importTable = async (tableName, options) => {
     });
 };
 
+dbService.updateTableData = async (options) => {
+    if (options && options.tableName && options.row !== undefined && options.field && options.value !== undefined) {
+        const table = dbService.activeDbHelper.file[options.tableName];
+
+        if (table && table.records.length > options.row) {
+            const field = table.records[options.row].fields[options.field];
+
+            if (field) {
+                field.value = options.value;
+            }
+            else {
+                throw new Error('Field does not exist.');
+            }
+        }
+        else {
+            throw new Error('Either table does not exist or row index out of range.')
+        }
+    }
+    else {
+        throw new Error('Required options are missing. Need tableName, row, field, and value');
+    }
+};
+
 module.exports = dbService;

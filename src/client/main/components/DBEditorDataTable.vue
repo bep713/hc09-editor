@@ -2,11 +2,12 @@
     <div class="db-editor-data-table-wrapper">
         <DataTable class="p-datatable-sm" :value="tableModel" :loading="isLoading"  
             :scrollable="true" scrollHeight="flex" :resizableColumns="true" columnResizeMode="expand"
-            stripedRows removableSort sortField="index" :sortOrder="1" 
+            stripedRows showGridlines removableSort sortField="index" :sortOrder="1" 
             :paginator="true" :rows="rows" :rowsPerPageOptions="[5,10,20,50]"
             v-model:filters="filters" filterDisplay="menu"
-            :lazy="true" :totalRecords="totalRecords" editMode="cell" ref="dt"
-            @page="onPage($event)" @sort="onSort($event)" @filter="onFilter($event)" @cellEditComplete="onCellEditComplete">
+            :lazy="true" :totalRecords="totalRecords" ref="dt"
+            editMode="cell" @cellEditComplete="onCellEditComplete" @cellEditCancel="onCellEditCancel" @cellEditInit="onCellEditInit"
+            @page="onPage($event)" @sort="onSort($event)" @filter="onFilter($event)" >
             <template #header>
                 <div class="header-wrapper">
                     <!-- <div class="left-content">
@@ -23,12 +24,12 @@
                 </div>
             </template>
 
-            <Column v-for="col of selectedColumns" :field="col.field" :header="col.field" :key="col.field" :sortable="true" :dataType="col.type" style="min-width: 125px;">
+            <Column v-for="col of selectedColumns" :field="col.field" :header="col.field" :key="col.field" :sortable="true" :dataType="col.type" style="min-width: 125px; min-height: 56px">
                 <template #filter="{filterModel, filterCallback}">
                     <InputText type="text" v-model="filterModel.value" class="p-column-filter" placeholder="Search..."  @keydown.enter="filterCallback()" />
                 </template>
                 <template #editor="slotProps">
-                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" />
+                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" style="width: 100%" />
                 </template>
             </Column>
         </DataTable>
@@ -79,6 +80,7 @@ export default {
     data() {
         return {
             filters: null,
+            editingRows: null,
             selectedColumns: [],
             editingCellRows: {},
         };
@@ -118,37 +120,64 @@ export default {
         onCellEditComplete(event) {
             if (!this.editingCellRows[event.index]) {
                 return;
-            } 
+            }
 
-            const editingColumn = this.selectedColumns[event.index];
-            const editingCellValue = this.editingCellRows[event.index][event.field];
+            const editingColumn = this.selectedColumns.find((col) => {
+                return col.field === event.field;
+            });
 
-            const newValue = {...this.editingCellRows[event.index]};
- 
-            switch(editingColumn.type) { 
-                case 'text':
-                    this.tableModel[event.index] = newValue;
-                    break;
-                case 'numeric':
-                default:
-                    if (isNumeric(editingCellValue)) {
-                        this.editingCellRows[event.index][event.field] = editingCellValue;
-                        this.tableModel[event.index] = {...this.editingCellRows[event.index]};
-                    }
-                    else
-                        event.preventDefault();
-                    break;
+            let editingCellValue = this.editingCellRows[event.index][event.field];
+
+            if (editingCellValue != this.tableModel[event.index][event.field]) {
+                const newValue = {...this.editingCellRows[event.index]};
+                let isChanged = false;
+     
+                switch(editingColumn.type) { 
+                    case 'text':
+                        this.tableModel[event.index] = newValue;
+                        isChanged = true;
+                        break;
+                    case 'numeric':
+                    default:
+                        if (isNumeric(editingCellValue)) {
+                            editingCellValue = parseInt(editingCellValue);
+                            this.editingCellRows[event.index][event.field] = editingCellValue;
+                            this.tableModel[event.index] = newValue;
+                            isChanged = true;
+                        }
+                        else {
+                            this.editingCellRows[event.index][event.field] = this.tableModel[event.index][event.field];
+                        }
+                        break;
+                }
+
+                if (isChanged) {
+                    this.$emit('cell-change', {
+                        'field': event.field,
+                        'row': event.index,
+                        'newValue': editingCellValue
+                    });
+                }
             }
         },
 
         onCellEdit(newValue, props) {
-            console.log(newValue, props);
-
             if (!this.editingCellRows[props.index]) {
                 this.editingCellRows[props.index] = {...props.data};
             }
 
             this.editingCellRows[props.index][props.column.props.field] = newValue;
+        },
+
+        onCellEditInit(params) {
+            setTimeout(() => {
+                const input = params.originalEvent.srcElement.querySelector('input');
+                input.focus();
+            }, 50);
+        },
+
+        onCellEditCancel() {
+            
         },
 
         onExportClicked() {
@@ -176,9 +205,9 @@ export default {
 }
 
 function isNumeric(str) {
-  if (typeof str != "string") return false // we only process strings!  
-  return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
-         !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+    if (typeof str != "string") return typeof str === 'number'; // we only process strings!  
+    return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
+            !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
 };
 
 </script>
@@ -212,6 +241,15 @@ function isNumeric(str) {
         div.p-tree .p-tree-container .p-treenode .p-treenode-content {
             padding: 0.6rem;
             padding-left: 0;
+        }
+
+        .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) td {
+            background: #fcfcfc;
+        }
+
+        .p-datatable.p-datatable-gridlines .p-paginator-bottom {
+            border-left: none;
+            border-right: none;
         }
     }
 </style>

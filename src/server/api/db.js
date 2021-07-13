@@ -75,6 +75,17 @@ dbApi.initializeListeners = (mainWindow) => {
             });
     });
 
+    ipcMain.on('db:update-value', (_, data) => {
+        dbEditorService.updateTableData(data)
+            .then(() => {
+                const response = new EventResponse(true);
+                mainWindow.webContents.send('db:update-value', response);
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'db:update-value');
+            });
+    });
+
     function sendErrorResponse(err, event) {
         log.error(err);
         const response = new EventResponse(false);

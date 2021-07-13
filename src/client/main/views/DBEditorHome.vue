@@ -3,7 +3,10 @@
         <div class="filter-buttons-wrapper">
             <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
             <Button label="Open DB file" @click="onOpenDBFileClicked" v-if="!treeModel" />
-            <Button label="Close DB file" class="p-button-outlined" @click="onCloseDBFileClicked" v-else />
+            <div class="db-opened-wrapper" v-else>
+                <Button label="Close DB file" class="p-button-outlined" @click="onCloseDBFileClicked" />
+                <div class="db-filename">{{currentlyOpenedFilename}}</div>
+            </div>
         </div>
         <div class="db-editor-data-table-wrapper" v-if="treeModel">
             <Splitter layout="horizontal">
@@ -16,7 +19,7 @@
                         <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
                             :isLoading="tableIsLoading" :selectedTableName="selectedTableName" 
                             @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)"
-                            @export="onExport($event)" @import="onImport($event)" />
+                            @export="onExport($event)" @import="onImport($event)" @cellChange="onCellChange($event)" />
                     </div>
                 </SplitterPanel>
             </Splitter>
@@ -68,6 +71,8 @@ export default {
                         'label': table
                     }
                 });
+
+                this.dbModel = null;
             }
         });
 
@@ -138,6 +143,22 @@ export default {
             }
         });
 
+        messageUI.on('db:update-value', (_, res) => {
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Could not update the field', 
+                    detail: 'The field could not be updated. Please try again later.',
+                    life: 4000
+                });
+
+                console.log(res);
+            }
+            else {
+                console.log('field updated');
+            }
+        });
+
         messageUI.send('db:get-recent-files');
     },
     components: {
@@ -168,6 +189,7 @@ export default {
             lastImportEvent: null,
             selectedTableKey: null,
             selectedTableName: null,
+            currentlyOpenedFilename: '',
         }
     },
     methods: {
@@ -195,11 +217,12 @@ export default {
         },
 
         onDBFileSelected(path) {
+            this.currentlyOpenedFilename = path;
             messageUI.send('db:open-file', path);
         },
 
         onRecentFileClicked(file) {
-            messageUI.send('db:open-file', file.path);
+            this.onDBFileSelected(file.path);
         },
 
         onRecentFileRemoved(file) {
@@ -299,6 +322,16 @@ export default {
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onCellChange(event) {
+            console.log(this.selectedTableName, event);
+            messageUI.send('db:update-value', {
+                tableName: this.selectedTableName,
+                row: event.row,
+                field: event.field,
+                value: event.newValue
+            });
         }
     },
     unmounted() {
@@ -307,6 +340,7 @@ export default {
         messageUI.removeAllListeners('db:get-records');
         messageUI.removeAllListeners('db:export-table');
         messageUI.removeAllListeners('db:import-table');
+        messageUI.removeAllListeners('db:update-value');
     }
 }
 </script>
@@ -318,6 +352,20 @@ export default {
 
     .db-editor-data-table-wrapper {
         height: calc(100vh - 74px);
+    }
+
+    .filter-buttons-wrapper {
+        display: flex;
+    }
+
+    .db-opened-wrapper {
+        display: flex;
+        align-items: center;
+        margin-left: 15px;
+    }
+
+    .db-filename {
+        margin-left: 15px;
     }
 
     .p-tree {

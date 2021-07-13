@@ -598,18 +598,41 @@ describe('db editor service unit tests', () => {
             expect(newData.filteredRecords[0].RLSP).to.equal(1);
         });
 
-        it('overwrites table data - performance test', async function() {
-            this.timeout(60000);
+        // commented out for speed - it will take about 2s
 
-            await dbEditorService.getTableData('CSKL');
+        // it('overwrites table data - performance test', async function() {
+        //     this.timeout(60000);
 
-            await dbEditorService.importTable('CSKL', {
-                'importLocation': 'C:/fakepath/import-test'
+        //     await dbEditorService.getTableData('CSKL');
+
+        //     await dbEditorService.importTable('CSKL', {
+        //         'importLocation': 'C:/fakepath/import-test'
+        //     });
+
+        //     const newData = await dbEditorService.getTableData('CSKL');
+            
+        //     expect(newData.filteredRecords[1].SKID).to.equal(5);
+        // });
+    });
+
+    describe('can update the data', () => {
+        it('function exists', () => {
+            expect(dbEditorService.updateTableData).to.exist;
+        });
+
+        it('updates the data as expected', async () => {
+            await dbEditorService.getTableData('TEAM');
+
+            await dbEditorService.updateTableData({
+                tableName: 'TEAM',
+                row: 0,
+                field: 'TDNA',
+                value: 'Scares'
             });
 
-            const newData = await dbEditorService.getTableData('CSKL');
-            
-            expect(newData.filteredRecords[1].SKID).to.equal(5);
+            const newData = await dbEditorService.getTableData('TEAM');
+
+            expect(newData.filteredRecords[0].TDNA).to.eql('Scares');
         });
     });
 });
