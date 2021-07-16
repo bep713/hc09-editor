@@ -17,9 +17,9 @@
                 <SplitterPanel :size="85" style="overflow: auto;">
                     <div class="db-table-wrapper">
                         <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
-                            :isLoading="tableIsLoading" :selectedTableName="selectedTableName" 
+                            :isLoading="tableIsLoading" :selectedTableName="selectedTableName" :schema="currentSchema"
                             @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)"
-                            @export="onExport($event)" @import="onImport($event)" @cellChange="onCellChange($event)" />
+                            @export="onExport($event)" @import="onImport($event)" @cellChange="onCellChange($event)" @invalidChange="onInvalidChange($event)" />
                     </div>
                 </SplitterPanel>
             </Splitter>
@@ -90,6 +90,7 @@ export default {
             else {
                 this.dbModel = res.result.filteredRecords;
                 this.totalRecords = res.result.totalRecords;
+                this.currentSchema = res.result.schema;
                 this.selectedTableName = this.selectedTable.label;
             }
         });
@@ -185,6 +186,7 @@ export default {
             isExporting: false,
             isImporting: false,
             selectedTable: null,
+            currentSchema: null,
             dbRowsToDisplay: 10,
             lastImportEvent: null,
             selectedTableKey: null,
@@ -325,12 +327,26 @@ export default {
         },
 
         onCellChange(event) {
-            console.log(this.selectedTableName, event);
             messageUI.send('db:update-value', {
                 tableName: this.selectedTableName,
                 row: event.row,
                 field: event.field,
                 value: event.newValue
+            });
+        },
+
+        onInvalidChange(event) {
+            let detail = `The cell's maximum value is ${event.maxValue}, you entered ${event.value}. The cell has been reverted to its previous value.`;
+
+            if (event.type === 'text') {
+                detail = `The cell's maximum length is ${event.maxValue} characters, you entered ${event.value.length} characters. The cell has been reverted to its previous value.`;
+            }
+
+            this.$toast.add({
+                severity: 'error', 
+                summary: 'Invalid value', 
+                detail: detail,
+                life: 5000
             });
         }
     },

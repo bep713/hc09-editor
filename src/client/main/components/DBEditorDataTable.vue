@@ -10,12 +10,6 @@
             @page="onPage($event)" @sort="onSort($event)" @filter="onFilter($event)" >
             <template #header>
                 <div class="header-wrapper">
-                    <!-- <div class="left-content">
-                        <div style="text-align:left">
-                            <MultiSelect v-model="selectedColumns" :options="columns" optionLabel="header" :filter="true"
-                                placeholder="Select Columns" style="width: 20em"/>
-                        </div>
-                    </div> -->
                     <div class="data-table-header">{{selectedTableName}}</div>
                     <div class="right-content">
                         <Button label="Export" class="p-button-outlined" icon="pi pi-fw pi-download" @click="onExportClicked" />
@@ -29,7 +23,8 @@
                     <InputText type="text" v-model="filterModel.value" class="p-column-filter" placeholder="Search..."  @keydown.enter="filterCallback()" />
                 </template>
                 <template #editor="slotProps">
-                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" style="width: 100%" />
+                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" style="width: 100%" 
+                        :class="{ 'p-invalid': editorIsInvalid }" />
                 </template>
             </Column>
         </DataTable>
@@ -71,6 +66,7 @@ export default {
 
     props: {
         rows: Number,
+        schema: Object,
         tableModel: Array,
         isLoading: Boolean,
         totalRecords: Number,
@@ -83,6 +79,7 @@ export default {
             editingRows: null,
             selectedColumns: [],
             editingCellRows: {},
+            editorIsInvalid: false,
         };
     },
 
@@ -131,19 +128,37 @@ export default {
             if (editingCellValue != this.tableModel[event.index][event.field]) {
                 const newValue = {...this.editingCellRows[event.index]};
                 let isChanged = false;
+                let isInvalid = false;
      
                 switch(editingColumn.type) { 
                     case 'text':
-                        this.tableModel[event.index] = newValue;
-                        isChanged = true;
+                        if (editingCellValue.length <= this.schema[editingColumn.field]) {
+                            this.tableModel[event.index] = newValue;
+
+                            isChanged = true;
+                            this.editorIsInvalid = false;
+                        }
+                        else {
+                            isInvalid = true;
+                            this.editingCellRows[event.index][event.field] = this.tableModel[event.index][event.field];
+                        }
+
                         break;
                     case 'numeric':
                     default:
                         if (isNumeric(editingCellValue)) {
                             editingCellValue = parseInt(editingCellValue);
-                            this.editingCellRows[event.index][event.field] = editingCellValue;
-                            this.tableModel[event.index] = newValue;
-                            isChanged = true;
+
+                            if (editingCellValue <= this.schema[editingColumn.field]) {
+                                this.editingCellRows[event.index][event.field] = editingCellValue;
+                                this.tableModel[event.index] = newValue;
+
+                                isChanged = true;
+                            }
+                            else {
+                                isInvalid = true;
+                                this.editingCellRows[event.index][event.field] = this.tableModel[event.index][event.field];
+                            }
                         }
                         else {
                             this.editingCellRows[event.index][event.field] = this.tableModel[event.index][event.field];
@@ -158,6 +173,14 @@ export default {
                         'newValue': editingCellValue
                     });
                 }
+                else if (isInvalid) {
+                    this.$emit('invalid-change', {
+                        'field': event.field,
+                        'value': editingCellValue,
+                        'maxValue': this.schema[editingColumn.field],
+                        'type': editingColumn.type
+                    });
+                }
             }
         },
 
@@ -165,7 +188,6 @@ export default {
             if (!this.editingCellRows[props.index]) {
                 this.editingCellRows[props.index] = {...props.data};
             }
-
             this.editingCellRows[props.index][props.column.props.field] = newValue;
         },
 

@@ -141,6 +141,10 @@ dbService.getTableData = async (tableName, options) => {
 
             return obj;
         }),
+        'schema': table.fieldDefinitions.reduce((accum, cur) => {
+            accum[cur.name] = cur.maxValue;
+            return accum;
+        }, {}),
         'totalRecords': recordCount
     };
 };

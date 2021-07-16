@@ -542,6 +542,13 @@ describe('db editor service unit tests', () => {
                 expect(data.filteredRecords.length).to.equal(0);
             });
         });
+
+        it('returns expected schema', async () => {
+            const data = await dbEditorService.getTableData('TEAM');
+
+            expect(data.schema.SID1).to.equal(127);
+            expect(data.schema.TLNA).to.equal(15);
+        });
     });
 
     describe('can export table data', () => {
