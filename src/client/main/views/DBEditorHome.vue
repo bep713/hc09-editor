@@ -333,6 +333,8 @@ export default {
                 field: event.field,
                 value: event.newValue
             });
+
+            this.$toast.removeAllGroups();
         },
 
         onInvalidChange(event) {

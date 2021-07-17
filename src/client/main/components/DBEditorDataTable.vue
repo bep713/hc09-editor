@@ -23,8 +23,8 @@
                     <InputText type="text" v-model="filterModel.value" class="p-column-filter" placeholder="Search..."  @keydown.enter="filterCallback()" />
                 </template>
                 <template #editor="slotProps">
-                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" style="width: 100%" 
-                        :class="{ 'p-invalid': editorIsInvalid }" />
+                    <InputText :modelValue="slotProps.data[slotProps.column.props.field]" @update:modelValue="onCellEdit($event, slotProps)" style="width: 100%; z-index: 101" 
+                        :class="{ 'p-invalid': editorIsInvalid }" @blur="onBlur" />
                 </template>
             </Column>
         </DataTable>
@@ -77,10 +77,11 @@ export default {
         return {
             filters: null,
             editingRows: null,
+            showUnderlay: false,
             selectedColumns: [],
             editingCellRows: {},
             editorIsInvalid: false,
-        };
+        }; 
     },
 
     created() {
@@ -192,10 +193,13 @@ export default {
         },
 
         onCellEditInit(params) {
+            this.showUnderlay = true;
+
             setTimeout(() => {
                 const input = params.originalEvent.srcElement.querySelector('input');
                 input.focus();
-            }, 50);
+                input.select();
+            }, 25);
         },
 
         onCellEditCancel() {
@@ -204,7 +208,7 @@ export default {
 
         onExportClicked() {
             this.$emit('export');
-        },
+        }, 
 
         onImportClicked() {
             const dt = this.$refs.dt;
@@ -216,7 +220,13 @@ export default {
                 'sortField': dt.d_sortField,
                 'sortOrder': dt.d_sortOrder
             });
-        }
+        },
+
+        onBlur(e) {
+            e.preventDefault();
+            this.showUnderlay = false;
+            document.dispatchEvent(new Event('click'));
+        },
     },
 
     watch: {
@@ -227,9 +237,9 @@ export default {
 }
 
 function isNumeric(str) {
-    if (typeof str != "string") return typeof str === 'number'; // we only process strings!  
-    return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
-            !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+    if (typeof str != "string") return typeof str === 'number';
+    return !isNaN(str) && 
+            !isNaN(parseFloat(str))
 };
 
 </script>
@@ -251,6 +261,14 @@ function isNumeric(str) {
                 margin-left: 10px;
             }
         }
+    }
+
+    .underlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
     }
 </style>
 
