@@ -131,9 +131,10 @@ export default {
                 let isChanged = false;
                 let isInvalid = false;
      
-                switch(editingColumn.type) { 
+                switch(editingColumn.type) {
                     case 'text':
                         if (editingCellValue.length <= this.schema[editingColumn.field]) {
+                            console.log(this.editingCellRows);
                             this.tableModel[event.index] = newValue;
 
                             isChanged = true;
@@ -189,6 +190,7 @@ export default {
             if (!this.editingCellRows[props.index]) {
                 this.editingCellRows[props.index] = {...props.data};
             }
+
             this.editingCellRows[props.index][props.column.props.field] = newValue;
         },
 
@@ -232,6 +234,7 @@ export default {
     watch: {
         selectedTableName: function () {
             this.setSelectedColumnsAndFilters();
+            this.editingCellRows = {};
         }
     }
 }
