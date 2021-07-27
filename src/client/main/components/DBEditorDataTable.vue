@@ -128,6 +128,7 @@ export default {
                 return col.field === event.field;
             });
 
+            const oldValue = this.tableModel[event.index][event.field];
             let editingCellValue = this.editingCellRows[event.index][event.field];
 
             if (editingCellValue != this.tableModel[event.index][event.field]) {
@@ -175,7 +176,8 @@ export default {
                     this.$emit('cell-change', {
                         'field': event.field,
                         'row': event.index,
-                        'newValue': editingCellValue
+                        'newValue': editingCellValue,
+                        'oldValue': oldValue
                     });
                 }
                 else if (isInvalid) {

@@ -77,7 +77,6 @@ export default {
                 });
 
                 this.dbModel = null;
-                console.log(this.treeModel[0]);
                 this.selectedTableKey = {
                     [this.treeModel[0].key]: true
                 };
@@ -192,6 +191,8 @@ export default {
         });
 
         messageUI.send('db:get-recent-files');
+
+        window.addEventListener('keydown', this.keydownListener);
     },
     components: {
         Tree,
@@ -223,6 +224,8 @@ export default {
                     }
                 }
             ],
+            changes: [],
+            redoStack: [],
             dbModel: null,
             recentFiles: [],
             treeModel: null,
@@ -281,6 +284,8 @@ export default {
 
             function closeFile() {
                 messageUI.send('db:get-recent-files');
+                this.changes = [];
+                this.dbModel = null;
                 this.treeModel = null;
                 this.$toast.removeAllGroups();
             };
@@ -400,13 +405,23 @@ export default {
         onCellChange(event) {
             this.fileHasChanged = true;
 
-            messageUI.send('db:update-value', {
+            const changeData = {
                 tableName: this.selectedTableName,
                 row: this.dbModelIndexMapping[event.row],
                 field: event.field,
-                value: event.newValue
-            });
+                value: event.newValue,
+                oldValue: event.oldValue
+            };
 
+            this.changes.push(changeData)
+            messageUI.send('db:update-value', changeData);
+
+            this.$toast.removeAllGroups();
+        },
+
+        onCellUndoRedo(event) {
+            this.fileHasChanged = true;
+            messageUI.send('db:update-value', event);
             this.$toast.removeAllGroups();
         },
 
@@ -444,6 +459,56 @@ export default {
             }).catch((err) => {
                 console.log(err);
             });
+        },
+
+        keydownListener(evt) {
+            if (this.dbModel) {
+                if (isSaveCombo() && this.fileHasChanged) {
+                    this.onSaveFileClicked();
+                }
+                else if (isUndoCombo() && this.changes.length > 0) {
+                    const lastChangeEvent = this.changes.pop();
+
+                    const newEvent = {
+                        tableName: lastChangeEvent.tableName,
+                        row: lastChangeEvent.row,
+                        field: lastChangeEvent.field,
+                        value: lastChangeEvent.oldValue
+                    };
+
+                    this.onCellUndoRedo(newEvent);
+
+                    this.dbModel[lastChangeEvent.row][lastChangeEvent.field] = lastChangeEvent.oldValue;
+                    this.redoStack.push(lastChangeEvent);
+                }
+                else if (isRedoCombo() && this.redoStack.length > 0) {
+                    const redoEvent = this.redoStack.pop();
+
+                    const newEvent = {
+                        tableName: redoEvent.tableName,
+                        row: redoEvent.row,
+                        field: redoEvent.field,
+                        value: redoEvent.value
+                    };
+
+                    this.onCellUndoRedo(newEvent);
+                    this.dbModel[redoEvent.row][redoEvent.field] = redoEvent.value;
+
+                    this.changes.push(redoEvent);
+                }
+            }
+
+            function isSaveCombo() {
+                return evt.ctrlKey && evt.key === 's';
+            };
+
+            function isUndoCombo() {
+                return evt.ctrlKey && evt.key === 'z';
+            };
+
+            function isRedoCombo() {
+                return evt.ctrlKey && evt.key === 'y';
+            };
         }
     },
     unmounted() {
@@ -454,6 +519,8 @@ export default {
         messageUI.removeAllListeners('db:import-table');
         messageUI.removeAllListeners('db:update-value');
         messageUI.removeAllListeners('db:save-file');
+
+        window.removeEventListener('keydown', this.keydownListener);
     }
 }
 </script>
