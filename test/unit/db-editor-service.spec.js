@@ -81,6 +81,18 @@ describe('db editor service unit tests', () => {
         });
     });
 
+    describe('can open a HC09 career file', () => {
+        it('returns expected number of tables', async () => {
+            await dbEditorService.openFile(path.join(__dirname, '../data/db/USR-DATA_CAREER'));
+            const result = dbEditorService.getTables();
+            expect(result.length).to.eql(208);
+        });
+
+        after(async () => {
+            await dbEditorService.openFile(path.join(__dirname, '../data/db/test.db'));
+        });
+    });
+
     describe('can retrieve table data', () => {
         it('function exists', () => {
             expect(dbEditorService.getTableData).to.exist;
@@ -173,6 +185,19 @@ describe('db editor service unit tests', () => {
             expect(totalRecords).to.equal(36);
         });
 
+        it('returns a mapping that defines filtered record index to actual record index', async () => {
+            const indexMapping = (await dbEditorService.getTableData('TEAM', {
+                'recordCount': 5,
+                'startIndex': 5
+            })).indexMapping;
+
+            expect(indexMapping.length).to.equal(5);
+            expect(indexMapping[0]).to.equal(5);
+            expect(indexMapping[1]).to.equal(6);
+            expect(indexMapping[2]).to.equal(7);
+            expect(indexMapping[3]).to.equal(8);
+            expect(indexMapping[4]).to.equal(9);
+        });
         
         describe('sort', () => {
             it('will read the entire table even if a record count is supplied (needed for sorting/filtering)', async () => {
@@ -194,6 +219,21 @@ describe('db editor service unit tests', () => {
 
                 expect(sortedData.totalRecords).to.equal(36);
                 expect(sortedData.filteredRecords.length).to.equal(36);
+            });
+
+            it('returns expected index mapping', async () => {
+                const sortedData = await dbEditorService.getTableData('TEAM', {
+                    'sort': {
+                        'field': 'SID1',
+                        'order': 'asc'
+                    }
+                });
+
+                expect(sortedData.indexMapping[0]).to.equal(31);
+                expect(sortedData.indexMapping[1]).to.equal(6);
+                expect(sortedData.indexMapping[2]).to.equal(0);
+                expect(sortedData.indexMapping[3]).to.equal(1);
+                expect(sortedData.indexMapping[4]).to.equal(2);
             });
 
             it('can sort by a field ascending', async () => {
@@ -474,6 +514,16 @@ describe('db editor service unit tests', () => {
                 expect(data.filteredRecords[0].TDNA).to.equal('Bears');
             });
 
+            it('returns expected index mapping', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'and', constraints: [{value: 'bears', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.indexMapping[0]).to.equal(0);
+            });
+
             it('supports multiple filters on a single field (and)', async () => {
                 const data = await dbEditorService.getTableData('TEAM', {
                     'filter': {
@@ -496,6 +546,18 @@ describe('db editor service unit tests', () => {
                 expect(data.filteredRecords[0].TDNA).to.equal('Bears');
                 expect(data.filteredRecords[1].TDNA).to.equal('Jaguars');
                 expect(data.filteredRecords[2].TDNA).to.equal('Browns');
+            });
+
+            it('returns expected index mapping with multiple filters', async () => {
+                const data = await dbEditorService.getTableData('TEAM', {
+                    'filter': {
+                        'TDNA': { operator: 'or', constraints: [{value: 'ars', matchMode: 'endsWith'}, {value: 'Browns', matchMode: 'equals'}] }
+                    }
+                });
+
+                expect(data.indexMapping[0]).to.equal(0);
+                expect(data.indexMapping[1]).to.equal(16);
+                expect(data.indexMapping[2]).to.equal(4);
             });
 
             it('supports multiple column filters', async () => {
@@ -640,6 +702,31 @@ describe('db editor service unit tests', () => {
             const newData = await dbEditorService.getTableData('TEAM');
 
             expect(newData.filteredRecords[0].TDNA).to.eql('Scares');
+        });
+    });
+
+    describe('can save the data', () => {
+        it('function exists', () => {
+            expect(dbEditorService.saveActiveFile).to.exist;
+        });
+
+        it('updates the data as expected', async () => {
+            await dbEditorService.getTableData('TEAM');
+
+            await dbEditorService.updateTableData({
+                tableName: 'TEAM',
+                row: 0,
+                field: 'TDNA',
+                value: 'ScareWolves'
+            });
+
+            await dbEditorService.saveActiveFile({
+                'path': path.join(__dirname, '../data/db/dbSaveTest.db')
+            });
+
+            await dbEditorService.openFile(path.join(__dirname, '../data/db/dbSaveTest.db'));
+            const newData = await dbEditorService.getTableData('TEAM');
+            expect(newData.filteredRecords[0].TDNA).to.eql('ScareWolves');
         });
     });
 });

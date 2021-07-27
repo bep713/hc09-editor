@@ -79,7 +79,13 @@ recentFileService.getRecentFiles = () => {
 };
 
 recentFileService.getRecentFilesByCategory = (category) => {
-    return recentFileService.recentFiles[category];
+    const categoryList = recentFileService.recentFiles[category];
+
+    if (categoryList) {
+        categoryList.sort((a, b) => { return b.time - a.time; });
+    }
+
+    return categoryList;
 };
 
 recentFileService._writeToRecentFilesStore = (data) => {

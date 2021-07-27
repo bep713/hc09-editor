@@ -11,6 +11,7 @@
             <template #header>
                 <div class="header-wrapper">
                     <div class="data-table-header">{{selectedTableName}}</div>
+                    <MultiSelect v-model="selectedColumns" :options="columns" optionLabel="field" :filter="true" class="column-select" />
                     <div class="right-content">
                         <Button label="Export" class="p-button-outlined" icon="pi pi-fw pi-download" @click="onExportClicked" />
                         <Button label="Import" class="p-button-outlined" icon="pi pi-fw pi-upload" @click="onImportClicked" />
@@ -90,14 +91,17 @@ export default {
 
     methods: {
         onPage(event) {
+            this.editingCellRows = {};
             this.$emit('page', event);
         },
 
         onSort(event) {
+            this.editingCellRows = {};
             this.$emit('sort', event);
         },
 
         onFilter(event) {
+            this.editingCellRows = {};
             this.$emit('filter', event);
         },
 
@@ -134,7 +138,6 @@ export default {
                 switch(editingColumn.type) {
                     case 'text':
                         if (editingCellValue.length <= this.schema[editingColumn.field]) {
-                            console.log(this.editingCellRows);
                             this.tableModel[event.index] = newValue;
 
                             isChanged = true;
@@ -256,6 +259,7 @@ function isNumeric(str) {
 
     .data-table-header {
         font-size: 1.2em;
+        flex-basis: 65px;
     }
 
     .right-content {
@@ -277,14 +281,7 @@ function isNumeric(str) {
 
 <style lang="scss">
     .db-editor-data-table-wrapper {
-        .p-tree-toggler {
-            display: none;
-        }
-
-        div.p-tree .p-tree-container .p-treenode .p-treenode-content {
-            padding: 0.6rem;
-            padding-left: 0;
-        }
+        height: calc(100vh - 69px);
 
         .p-datatable.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) td {
             background: #fcfcfc;
@@ -293,6 +290,10 @@ function isNumeric(str) {
         .p-datatable.p-datatable-gridlines .p-paginator-bottom {
             border-left: none;
             border-right: none;
+        }
+
+        .column-select {
+            max-width: 40%;
         }
     }
 </style>

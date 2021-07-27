@@ -719,8 +719,9 @@ export default {
     .filter-buttons-wrapper {
         margin-bottom: 15px;
 
-        button {
-            + button {
+        > button {
+            + button,
+            + .p-splitbutton {
                 margin-left: 15px;
             }
         }

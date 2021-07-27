@@ -1,32 +1,36 @@
 <template>
     <div class="db-editor-wrapper">
         <div class="filter-buttons-wrapper">
-            <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
-            <Button label="Open DB file" @click="onOpenDBFileClicked" v-if="!treeModel" />
-            <div class="db-opened-wrapper" v-else>
-                <Button label="Close DB file" class="p-button-outlined" @click="onCloseDBFileClicked" />
-                <div class="db-filename">{{currentlyOpenedFilename}}</div>
+            <div class="db-closed-wrapper toolbar-button-wrapper" v-if="!treeModel">
+                <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
+                <Button label="Open DB file" @click="onOpenDBFileClicked" v-if="!treeModel" />
             </div>
-        </div>
-        <div class="db-editor-data-table-wrapper" v-if="treeModel">
-            <Splitter layout="horizontal">
-                <SplitterPanel :size="15"> 
-                    <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedTableKey" scrollHeight="flex"
-                        @nodeSelect="onTableSelect" :filter="true" filterMode="lenient"></Tree>
-                </SplitterPanel> 
-                <SplitterPanel :size="85" style="overflow: auto;">
-                    <div class="db-table-wrapper">
-                        <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
-                            :isLoading="tableIsLoading" :selectedTableName="selectedTableName" :schema="currentSchema"
-                            @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)"
-                            @export="onExport($event)" @import="onImport($event)" @cellChange="onCellChange($event)" @invalidChange="onInvalidChange($event)" />
+            <div class="db-opened-wrapper toolbar-button-wrapper" v-else>
+                <Button label="Close" class="p-button-outlined" @click="onCloseDBFileClicked" />
+                <SplitButton label="Save" :model="saveItems" class="p-button-outlined" @click="onSaveFileClicked" />
+                <div class="db-filename">
+                    <div class="filename-text">{{currentlyOpenedFilename}}
+                        <span v-if="fileHasChanged">*</span>
                     </div>
-                </SplitterPanel>
-            </Splitter>
+                </div>
+            </div>            
+        </div>
+        <div class="db-editor-home-wrapper" v-if="treeModel">
+            <Tree :value="treeModel" selectionMode="single" v-model:selectionKeys="selectedTableKey" scrollHeight="flex"
+                @nodeSelect="onTableSelect" :filter="true" filterMode="lenient"></Tree>
+            <div class="db-table-wrapper">
+                <DBEditorDataTable :rows="dbRowsToDisplay" v-if="dbModel" :tableModel="dbModel" :totalRecords="totalRecords" 
+                    :isLoading="tableIsLoading" :selectedTableName="selectedTableName" :schema="currentSchema"
+                    @page="onPage($event)" @sort="onPage($event)" @filter="onPage($event)"
+                    @export="onExport($event)" @import="onImport($event)" 
+                    @cellChange="onCellChange($event)" @invalidChange="onInvalidChange($event)" />
+            </div>
         </div>
 
         <RecentFilesList v-else :recentFiles="recentFiles" :headerText="'Recently opened DB items'" 
             @recentFileClicked="onRecentFileClicked" @recentFileRemoved="onRecentFileRemoved" />
+
+        <ConfirmDialog></ConfirmDialog>
 
         <Toast position="bottom-right" />
     </div>
@@ -36,8 +40,8 @@
 import Tree from 'primevue/tree';
 import Toast from 'primevue/toast';
 import Button from 'primevue/button';
-import Splitter from 'primevue/splitter';
-import SplitterPanel from 'primevue/splitterpanel';
+import SplitButton from 'primevue/splitbutton';
+import ConfirmDialog from 'primevue/confirmdialog';
 
 import RecentFilesList from '../components/RecentFilesList';
 import DBEditorDataTable from '../components/DBEditorDataTable.vue';
@@ -73,6 +77,12 @@ export default {
                 });
 
                 this.dbModel = null;
+                console.log(this.treeModel[0]);
+                this.selectedTableKey = {
+                    [this.treeModel[0].key]: true
+                };
+
+                this.onTableSelect(this.treeModel[0]);
             }
         });
 
@@ -88,10 +98,11 @@ export default {
                 });
             }
             else {
+                this.currentSchema = res.result.schema;
                 this.dbModel = res.result.filteredRecords;
                 this.totalRecords = res.result.totalRecords;
-                this.currentSchema = res.result.schema;
                 this.selectedTableName = this.selectedTable.label;
+                this.dbModelIndexMapping = res.result.indexMapping;
             }
         });
 
@@ -113,6 +124,8 @@ export default {
                     detail: 'The table has been exported to ' + res.exportLocation + '.',
                     life: 4000
                 });
+
+
             }
         });
 
@@ -127,8 +140,8 @@ export default {
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
-                    summary: 'Could not export the table', 
-                    detail: 'The table could not be exported. Please try again later.',
+                    summary: 'Could not import the table', 
+                    detail: 'The table could not be imported. Please try again later.',
                     life: 4000
                 });
             }
@@ -140,7 +153,7 @@ export default {
                     life: 4000
                 });
 
-
+                this.fileHasChanged = true;
             }
         });
 
@@ -155,8 +168,26 @@ export default {
 
                 console.log(res);
             }
+        });
+
+        messageUI.on('db:save-file', (_, res) => {
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error', 
+                    summary: 'Could not save the file', 
+                    detail: 'The file could not be saved. Please try again later.',
+                    life: 4000
+                });
+            }
             else {
-                console.log('field updated');
+                this.$toast.add({
+                    severity: 'success', 
+                    summary: 'File saved successfully', 
+                    detail: 'The file was saved successfully.',
+                    life: 4000
+                });
+
+                this.fileHasChanged = false;
             }
         });
 
@@ -166,8 +197,8 @@ export default {
         Tree,
         Toast,
         Button,
-        Splitter,
-        SplitterPanel,
+        SplitButton,
+        ConfirmDialog,
         RecentFilesList,
         DBEditorDataTable
     },
@@ -178,6 +209,20 @@ export default {
     },
     data() {
         return {
+            saveItems: [
+                {
+                    label: 'Save',
+                    command: () => {
+                        this.onSaveFileClicked();
+                    }
+                },
+                {
+                    label: 'Save as...',
+                    command: () => {
+                        this.onSaveAsClicked()
+                    }
+                }
+            ],
             dbModel: null,
             recentFiles: [],
             treeModel: null,
@@ -189,8 +234,10 @@ export default {
             currentSchema: null,
             dbRowsToDisplay: 10,
             lastImportEvent: null,
+            fileHasChanged: false,
             selectedTableKey: null,
             selectedTableName: null,
+            dbModelIndexMapping: null,
             currentlyOpenedFilename: '',
         }
     },
@@ -215,10 +262,32 @@ export default {
         },
 
         onCloseDBFileClicked() {
-            this.treeModel = null;
+            if (this.fileHasChanged) {
+                this.$confirm.require({
+                    message: 'Are you sure you want to close with unsaved changes? The changes will be lost.',
+                    header: 'Close without saving?',
+                    icon: 'pi pi-exclamation-triangle',
+                    accept: () => {
+                        closeFile.bind(this)();
+                    },
+                    reject: () => {
+
+                    }
+                });
+            }
+            else {
+                closeFile.bind(this)();
+            }
+
+            function closeFile() {
+                messageUI.send('db:get-recent-files');
+                this.treeModel = null;
+                this.$toast.removeAllGroups();
+            };
         },
 
         onDBFileSelected(path) {
+            this.fileHasChanged = false;
             this.currentlyOpenedFilename = path;
             messageUI.send('db:open-file', path);
         },
@@ -232,6 +301,7 @@ export default {
         },
 
         onTableSelect(node) {
+            console.log(this.selectedTableKey);
             this.isReading = true;
             this.selectedTable = node;
             this.getRecords(node.label, {
@@ -294,13 +364,14 @@ export default {
                     messageUI.send('db:export-table', {
                         tableName: this.selectedTableName,
                         options: {
-                            exportLocation: result.filePath
+                            exportLocation: result.filePath,
+                            openFile: true
                         }
                     });
                 }
             }).catch((err) => {
                 console.log(err);
-            })
+            });
         },
 
         onImport(event) {
@@ -323,13 +394,15 @@ export default {
                 }
             }).catch((err) => {
                 console.log(err);
-            })
+            });
         },
 
         onCellChange(event) {
+            this.fileHasChanged = true;
+
             messageUI.send('db:update-value', {
                 tableName: this.selectedTableName,
-                row: event.row,
+                row: this.dbModelIndexMapping[event.row],
                 field: event.field,
                 value: event.newValue
             });
@@ -350,6 +423,27 @@ export default {
                 detail: detail,
                 life: 5000
             });
+        },
+
+        onSaveFileClicked() {
+            messageUI.send('db:save-file');
+        },
+
+        onSaveAsClicked() {
+            asyncNode.require('deskgap').then(function(deskgap) {
+                return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
+                    title: 'Select save location',
+                    filters: [{ name: 'DB', extensions: ['db'] }, { name: 'Any', extensions: ['*'] }]
+                }).resolve().value();
+            }).then((result) => {
+                if (!result.cancelled && result.filePath) {
+                    messageUI.send('db:save-file', {
+                        path: result.filePath
+                    });
+                }
+            }).catch((err) => {
+                console.log(err);
+            });
         }
     },
     unmounted() {
@@ -359,6 +453,7 @@ export default {
         messageUI.removeAllListeners('db:export-table');
         messageUI.removeAllListeners('db:import-table');
         messageUI.removeAllListeners('db:update-value');
+        messageUI.removeAllListeners('db:save-file');
     }
 }
 </script>
@@ -368,22 +463,40 @@ export default {
         margin: 10px;
     }
 
-    .db-editor-data-table-wrapper {
-        height: calc(100vh - 74px);
+    .db-editor-home-wrapper {
+        height: calc(100vh - 69px);
+        display: grid;
+        grid-template-columns: 157px calc(100% - 167px);
+        gap: 10px;
     }
 
     .filter-buttons-wrapper {
-        display: flex;
+        // display: flex;
+        // justify-content: space-between;
+        // align-items: center;
+        margin-bottom: 10px;
+        position: relative;
     }
 
     .db-opened-wrapper {
         display: flex;
         align-items: center;
-        margin-left: 15px;
+        // margin-left: 15px;
+
+        > button {
+            + .p-splitbutton {
+                margin-left: 15px;
+            }
+        }
     }
 
     .db-filename {
-        margin-left: 15px;
+        // margin-left: 15px;
+        position: absolute;
+        top: 9px;
+        left: 240px;
+        right: 235px;
+        text-align: center;
     }
 
     .p-tree {
@@ -396,7 +509,57 @@ export default {
         border: none;
     }
 
-    .db-table-wrapper {
-        margin-left: 10px;
+    .toolbar-button-wrapper {
+        > button {
+            + button,
+            + .p-splitbutton {
+                margin-left: 10px;
+            }
+        } 
+    }
+
+    .filename-text {
+        margin: 0 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        span {
+            margin-left: -2px;
+        }
+    }    
+</style>
+<style lang="scss">
+    .p-button-outlined {
+        button {
+            background-color: transparent;
+            color: #2196F3;
+            border: 1px solid;
+
+            &:enabled:hover {
+                background: rgba(33, 150, 243, 0.04);
+                color: #2196F3;
+            }
+
+            &:enabled:active {
+                background: rgba(33, 150, 243, 0.16);
+                color: #2196F3;
+            }
+
+            + .p-splitbutton-menubutton {
+                border-left: none;
+            }
+        }
+    }
+
+    .db-editor-home-wrapper {
+        .p-tree-toggler {
+            display: none;
+        }
+
+        div.p-tree .p-tree-container .p-treenode .p-treenode-content {
+            padding: 0.6rem;
+            padding-left: 0;
+        }
     }
 </style>

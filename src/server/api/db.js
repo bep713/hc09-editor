@@ -1,4 +1,6 @@
+const open = require('open');
 const path = require('path');
+const child_process = require('child_process');
 const log = require('../../util/logger');
 const { app, ipcMain } = require('deskgap');
 const EventResponse = require('../model/EventResponse');
@@ -55,6 +57,13 @@ dbApi.initializeListeners = (mainWindow) => {
     ipcMain.on('db:export-table', (_, data) => {
         dbEditorService.exportTable(data.tableName, data.options)
             .then(() => {
+                if (data.options.openFile) {
+                    // open(data.options.exportLocation);
+                    child_process.exec('start "' + data.options.exportLocation + '"', {
+                        windowsHide: true
+                    })
+                }
+
                 const response = new EventResponse(true);
                 response.exportLocation = data.options.exportLocation;
                 mainWindow.webContents.send('db:export-table', response);
@@ -83,6 +92,17 @@ dbApi.initializeListeners = (mainWindow) => {
             })
             .catch((err) => {
                 sendErrorResponse(err, 'db:update-value');
+            });
+    });
+
+    ipcMain.on('db:save-file', (_, data) => {
+        dbEditorService.saveActiveFile(data)
+            .then(() => {
+                const response = new EventResponse(true);
+                mainWindow.webContents.send('db:save-file', response);
+            })
+            .catch((err) => {
+                sendErrorResponse(err, 'db:save-file');
             });
     });
 

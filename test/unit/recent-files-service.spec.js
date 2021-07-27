@@ -231,6 +231,31 @@ describe('recent files service unit tests', () => {
             }])
         });
 
+        it('results are sorted by time', () => {
+            recentFilesService.addFile('dbFiles', {
+                'path': 'test/path',
+                'type': 'file',
+                'time': 1
+            });
+
+            recentFilesService.addFile('dbFiles', {
+                'path': 'test/path/db',
+                'type': 'file',
+                'time': 2
+            });
+
+            const result = recentFilesService.getRecentFilesByCategory('dbFiles');
+            expect(result).to.eql([{
+                'path': 'test/path/db',
+                'type': 'file',
+                'time': 2
+            }, {
+                'path': 'test/path',
+                'type': 'file',
+                'time': 1
+            }])
+        });
+
         it('returns undefined if the category is empty', () => {
             const result = recentFilesService.getRecentFilesByCategory('dbFiles');
             expect(result).to.be.undefined;

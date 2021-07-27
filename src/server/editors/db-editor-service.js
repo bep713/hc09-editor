@@ -2,16 +2,14 @@ const fs = require('fs');
 const xlsx = require('xlsx');
 const crypto = require('crypto');
 const log = require('../../util/logger');
-const TDBHelper = require('madden-file-tools/helpers/TDBHelper');
-
-const { BitView } = require('bit-buffer');
+const DBHelperFactory = require('madden-file-tools/helpers/DBHelperFactory');
 
 let dbService = {};
 
 dbService.activeDbHelper = null;
 
 dbService.openFile = async (filePath) => {
-    dbService.activeDbHelper = new TDBHelper();
+    dbService.activeDbHelper = await DBHelperFactory.createHelper(filePath);
     await dbService.activeDbHelper.load(filePath);
 };
 
@@ -145,7 +143,10 @@ dbService.getTableData = async (tableName, options) => {
             accum[cur.name] = cur.maxValue;
             return accum;
         }, {}),
-        'totalRecords': recordCount
+        'totalRecords': recordCount,
+        'indexMapping': records.map((record) => {
+            return record.index;
+        })
     };
 };
 
@@ -224,6 +225,11 @@ dbService.updateTableData = async (options) => {
     else {
         throw new Error('Required options are missing. Need tableName, row, field, and value');
     }
+};
+
+dbService.saveActiveFile = async (options) => {
+    let outputFile = options && options.path ? options.path : null;
+    await dbService.activeDbHelper.save(outputFile);
 };
 
 module.exports = dbService;
