@@ -165,8 +165,9 @@ export default {
                     life: 4000
                 });
 
-                console.log(res);
             }
+            
+            console.log(res);
         });
 
         messageUI.on('db:save-file', (_, res) => {
@@ -461,6 +462,21 @@ export default {
             });
         },
 
+        updateModelUndoRedo(event) {
+            console.log(event);
+            console.log(this.dbModelIndexMapping);
+
+            // determine if the row is currently displayed
+            const dbModelRow = Object.keys(this.dbModelIndexMapping).find((mappingKey) => {
+                return this.dbModelIndexMapping[mappingKey] === event.row;
+            });
+
+            if (dbModelRow) {
+                // if the row is currently visible
+                this.dbModel[dbModelRow][event.field] = event.value;
+            }
+        },
+
         keydownListener(evt) {
             if (this.dbModel) {
                 if (isSaveCombo() && this.fileHasChanged) {
@@ -477,8 +493,8 @@ export default {
                     };
 
                     this.onCellUndoRedo(newEvent);
+                    this.updateModelUndoRedo(newEvent);
 
-                    this.dbModel[lastChangeEvent.row][lastChangeEvent.field] = lastChangeEvent.oldValue;
                     this.redoStack.push(lastChangeEvent);
                 }
                 else if (isRedoCombo() && this.redoStack.length > 0) {
@@ -492,7 +508,7 @@ export default {
                     };
 
                     this.onCellUndoRedo(newEvent);
-                    this.dbModel[redoEvent.row][redoEvent.field] = redoEvent.value;
+                    this.updateModelUndoRedo(newEvent);
 
                     this.changes.push(redoEvent);
                 }

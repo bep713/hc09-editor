@@ -59,7 +59,7 @@ dbApi.initializeListeners = (mainWindow) => {
             .then(() => {
                 if (data.options.openFile) {
                     // open(data.options.exportLocation);
-                    child_process.exec('start "' + data.options.exportLocation + '"', {
+                    child_process.exec('start excel "' + data.options.exportLocation + '"', {
                         windowsHide: true
                     })
                 }
