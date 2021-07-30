@@ -1,8 +1,8 @@
 <template>
     <div class="recent-files-wrapper">
-        <h2 class="recent-files-header">Recently opened items</h2>
+        <h2 class="recent-files-header">{{headerText}}</h2>
         <div class="files-wrapper" v-if="recentFiles.length > 0">
-            <div class="recent-file" v-for="recentFile in recentFiles" :key="recentFile.filePath" @click="onRecentFileClicked(recentFile)">
+            <div class="recent-file" v-for="recentFile in recentFiles" :key="recentFile.filePath" @click="onRecentFileClicked(recentFile)" data-testid="recent-file">
                 <div class="recent-file-data">
                     <div class="path-name">
                         <i :class="{ 'pi-folder': recentFile.type === 'root', 'pi-file': recentFile.type === 'single', 'pi': true }"></i>
@@ -10,10 +10,10 @@
                     </div>
                     <div class="recent-file-time">{{parseDate(recentFile.time)}}</div>
                 </div>
-                <Button icon="pi pi-times" class="p-button-text btn-remove-recent-file" @click.stop="onRemoveRecentFileClicked(recentFile)" />
+                <Button icon="pi pi-times" class="p-button-text btn-remove-recent-file" @click.stop="onRemoveRecentFileClicked(recentFile)" data-testid="remove-button" />
             </div>
         </div>
-        <div class="recent-files-empty" v-else>
+        <div class="recent-files-empty" v-else data-testid="empty-message">
             <p>You have not opened any recent files. They will appear here after you open them.</p>
         </div>
     </div>
@@ -29,7 +29,11 @@ export default {
         Button
     },
     props: {
-        recentFiles: Array
+        recentFiles: Array,
+        headerText: {
+            type: String,
+            default: 'Recently opened items'
+        }
     },
     methods: {
         parseDate(dateMilli) {

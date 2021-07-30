@@ -4,6 +4,7 @@ import Home from '../views/Home';
 import SettingsHome from '../views/Settings';
 import EditorHome from '../views/EditorHome';
 import GameFilesEditorHome from '../views/GameFilesEditorHome';
+import DBEditorHome from '../views/DBEditorHome';
 
 const routes = [
     {
@@ -22,6 +23,10 @@ const routes = [
         path: '/settings/home',
         name: 'Settings Home',
         component: SettingsHome
+    }, {
+        path: '/db-editor/home',
+        name: 'DB Editor Home',
+        component: DBEditorHome
     }
 ];
 

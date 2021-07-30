@@ -19,6 +19,11 @@ export default {
     src: url('../font/EASPORTS15.ttf');
 }
 
+@font-face {
+    font-family: 'HCHelvetica';
+    src: url('../font/HCHelv.otf')
+}
+
 * {
     box-sizing: border-box;
 }
@@ -34,5 +39,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .font-ea {
     font-family: 'ea';
+    font-weight: normal;
 }
 </style>

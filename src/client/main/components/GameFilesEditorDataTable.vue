@@ -95,10 +95,12 @@ export default {
                 { label: 'Import', icon: 'pi pi-fw pi-upload', command: () => this.importSelection(this.selectedNode) },
                 { 
                     label: 'Import From...',
+                    visible: () => { return this.selectedNode.isCompressed || this.selectedNode.type.indexOf('P3R') > -1; },
                     items: [
                         { 
                             label: 'Compressed', 
-                            command: () => this.importSelectionCompressed(this.selectedNode) 
+                            command: () => this.importSelectionCompressed(this.selectedNode),
+                            visible: () => { return this.selectedNode.isCompressed } 
                         },
                         { 
                             label: 'DDS', 
@@ -111,6 +113,7 @@ export default {
                 { label: 'Export', icon: 'pi pi-fw pi-download', command: () => this.exportSelection(this.selectedNode) },
                 { 
                     label: 'Export As...',
+                    visible: () => { return this.selectedNode.isCompressed || this.selectedNode.type.indexOf('P3R') > -1; },
                     items: [
                         { 
                             label: 'Compressed', 
