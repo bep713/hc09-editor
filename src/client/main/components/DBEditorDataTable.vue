@@ -189,12 +189,12 @@ export default {
                     });
                 }
             }
+
+            this.editingCellRows = {};
         },
 
         onCellEdit(newValue, props) {
-            if (!this.editingCellRows[props.index]) {
-                this.editingCellRows[props.index] = {...props.data};
-            }
+            this.editingCellRows[props.index] = {...props.data};
 
             this.editingCellRows[props.index][props.column.props.field] = newValue;
         },

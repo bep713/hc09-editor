@@ -254,7 +254,7 @@ export default {
             asyncNode.require('deskgap').then(function(deskgap) {
                 return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
                     title: 'Select DB file',
-                    filters: [{ name: 'DB', extensions: ['db'] }, { name: 'Any', extensions: ['*'] }]
+                    filters: [{ name: 'Any', extensions: ['*'] }]
                 }).resolve().value();
             }).then((result) => {
                 if (!result.cancelled && result.filePaths) {
