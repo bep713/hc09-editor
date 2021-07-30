@@ -583,7 +583,7 @@ export default {
     }
 
     .p-tree {
-        height: 100%;
+        height: calc(-69px + 100vh);
         overflow: auto;
     }
 
