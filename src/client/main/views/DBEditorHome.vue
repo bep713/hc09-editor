@@ -15,6 +15,8 @@
                         <span v-if="fileHasChanged">*</span>
                     </div>
                 </div>
+
+                <input type="text" class="hidden" id="save-as-path" @change="onSaveAsInputChanged" />
             </div>            
         </div>
         <div class="db-editor-home-wrapper" v-if="treeModel">
@@ -481,12 +483,20 @@ export default {
                 }).resolve().value();
             }).then((result) => {
                 if (!result.cancelled && result.filePath) {
-                    messageUI.send('db:save-file', {
-                        path: result.filePath
-                    });
+                    this.onSaveAs(result.filePath);
                 }
             }).catch((err) => {
                 console.log(err);
+            });
+        },
+
+        onSaveAsInputChanged(event) {
+            this.onSaveAs(event.target.value);
+        },
+
+        onSaveAs(path) {
+            messageUI.send('db:save-file', {
+                path: path
             });
         },
 

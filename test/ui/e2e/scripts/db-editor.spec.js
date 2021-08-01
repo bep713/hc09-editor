@@ -70,18 +70,22 @@ describe('db editor tests', async function () {
     });
 
     this.timeout(60000);
-    const CAREER_FILE_PATH = path.join(__dirname, '../../../data/db/BLUS30128-CAREER-TEST/USR-DATA');
+    const PRISTINE_CAREER_FILE_PATH = path.join(__dirname, '../../../data/db/BLUS30128-CAREER-TEST/USR-DATA');
+    const CAREER_FILE_PATH = path.join(__dirname, '../../../data/db/BLUS30128-CAREER-TEST/USR-DATA-MODIFIED');
         
     const PRISTINE_DB_FILE_PATH = path.join(__dirname, '../../../data/db/pristine/pristine-roster.db');
     const DB_FILE_PATH = path.join(__dirname, '../../../data/db/end-to-end-test.db');
+    const SAVE_DB_AS_PATH = path.join(__dirname, '../../../data/db/end-to-end-test-save-as.db');
 
     const EXPORT_PATH = path.join(__dirname, '../../../data/db/export-test.csv');
     const EXPORT_COMPARE_PATH = path.join(__dirname, '../../../data/db/pristine/export-compare.csv');
 
     const IMPORT_PATH = path.join(__dirname, '../../../data/db/pristine/import-test.csv');
 
+
     beforeEach(async () => {
         await cloneFile(PRISTINE_DB_FILE_PATH, DB_FILE_PATH);
+        await cloneFile(PRISTINE_CAREER_FILE_PATH, CAREER_FILE_PATH);
     })
 
     it('can open and modify a DB file', async () => {
@@ -352,8 +356,23 @@ describe('db editor tests', async function () {
         const saveKeyShortcutSeverity = await toast.readToastSeverity();
         expect(saveKeyShortcutSeverity).to.equal('success');
 
+        await toast.closeToast();
+
         const fileNameAfterSaveKey = await dbEditorData.readFileName();
         expect(fileNameAfterSaveKey).to.equal(DB_FILE_PATH);
+
+        // save as
+        await dbEditorData.saveFileAs(SAVE_DB_AS_PATH);
+        await toast.waitForToast();
+        await toast.closeToast();
+
+        const saveAsFile = fs.readFileSync(SAVE_DB_AS_PATH);
+        const saveFile = fs.readFileSync(DB_FILE_PATH);
+        testBufferHashes(saveFile, saveAsFile);
+
+        await dbEditorData.closeFile();
+        await dbEditorHome.waitForPageLoad();
+        await recentFiles.removeAllRecentFiles();
     });
 
     it('undo and redo tests', async () => {
@@ -361,13 +380,11 @@ describe('db editor tests', async function () {
         await home.waitForPageLoad();
         await home.openDbEditor();
 
-        const recentFiles = new RecentFiles(page);
-
         const dbEditorHome = new DbEditorHome(page);
         await dbEditorHome.waitForPageLoad();
+        await dbEditorHome.openDbFile(DB_FILE_PATH);
 
         const dbEditorData = new DbEditorData(page);
-        await recentFiles.openRecentFile(1);
         await dbEditorData.waitForPageLoad();
         await dbEditorData.waitForTableToLoad();
 
@@ -431,6 +448,90 @@ describe('db editor tests', async function () {
 
         const notTest9 =  await dbEditorData.readTableDataAtIndicies(5, 52);
         expect(notTest9).to.equal(originalTest9);
+
+        await dbEditorData.closeFile();
+
+        const modal = new UnsavedChangesModal(page);
+        await modal.closeWithoutSaving();
+
+        await dbEditorHome.waitForPageLoad();
+        
+        const recentFiles = new RecentFiles(page);
+        await recentFiles.removeAllRecentFiles();
+    });
+
+    it('can open a HC09 career file in the DB editor', async () => {
+        const home = new HomePage(page);
+        await home.waitForPageLoad();
+        await home.openDbEditor();
+
+        const dbEditorHome = new DbEditorHome(page);
+        await dbEditorHome.waitForPageLoad();
+        await dbEditorHome.openDbFile(CAREER_FILE_PATH);
+
+        const dbEditorData = new DbEditorData(page);
+        await dbEditorData.waitForPageLoad();
+        await dbEditorData.waitForTableToLoad();
+
+        // auto-opens the first table
+        const firstTableName = await dbEditorData.readTableName();
+        expect(firstTableName).to.equal('AWPL');
+
+        // can search the tables
+        await dbEditorData.searchTables('TEAM');
+
+        // can select and load a table
+        await dbEditorData.openTableAtIndex(1);
+        await dbEditorData.waitForTableToLoad();
+
+        // displays the expected table name
+        const teamTableName = await dbEditorData.readTableName();
+        expect(teamTableName).to.equal('TEAM');
+        
+        // displays all the table columns
+        const tableColumns = await dbEditorData.readTableColumns();
+        expect(tableColumns.length).to.equal(127);
+
+        // displays the table data
+        const browns = await dbEditorData.readTableDataAtIndicies(5, 10);
+        expect(browns).to.equal('Browns');
+
+        // displays a limited number of rows
+        const numberOfRowsDisplayed = await dbEditorData.readNumberOfRows();
+        expect(numberOfRowsDisplayed).to.equal(10);
+
+        await dbEditorData.editTableDataAtIndicies(5, 10, 'Test');
+        await dbEditorData.saveFile();
+
+        const toast = new ToastMessage(page);
+        await toast.waitForToast();
+        await toast.closeToast();
+
+        await dbEditorData.closeFile();
+        await dbEditorHome.waitForPageLoad();
+
+        const recentFiles = new RecentFiles(page);
+        await recentFiles.openRecentFile(1);
+        await dbEditorData.waitForPageLoad();
+        await dbEditorData.waitForTableToLoad();
+
+        await dbEditorData.openTable('TEAM');
+        const newBrowns = await dbEditorData.readTableDataAtIndicies(5, 10);
+        expect(newBrowns).to.equal('Test');
+
+        await dbEditorData.editTableDataAtIndicies(5, 10, 'Browns');
+        await dbEditorData.saveFile();
+
+        await toast.waitForToast();
+        await toast.closeToast();
+
+        const careerFile = fs.readFileSync(CAREER_FILE_PATH);
+        const pristineCareer = fs.readFileSync(PRISTINE_CAREER_FILE_PATH);
+        testBufferHashes(careerFile, pristineCareer);
+
+        await dbEditorData.closeFile();
+        await dbEditorHome.waitForPageLoad();
+        await recentFiles.removeAllRecentFiles();
     });
 });
 

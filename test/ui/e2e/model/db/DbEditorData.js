@@ -18,6 +18,10 @@ class DbEditorData {
         await this.page.click('.save-db-file');
     }
 
+    async saveFileAs(outputPath) {
+        await util.enterFilePath(this.page, '#save-as-path', outputPath);
+    }
+
     async readFileName() {
         return this.page.innerText('.filename-text');
     }
