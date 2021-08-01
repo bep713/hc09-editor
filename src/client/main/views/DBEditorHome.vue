@@ -4,10 +4,12 @@
             <div class="db-closed-wrapper toolbar-button-wrapper" v-if="!treeModel">
                 <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
                 <Button label="Open DB file" @click="onOpenDBFileClicked" v-if="!treeModel" />
+
+                <input type="text" class="hidden" id="db-file" @change="onDbFileInputChanged" />
             </div>
             <div class="db-opened-wrapper toolbar-button-wrapper" v-else>
-                <Button label="Close" class="p-button-outlined" @click="onCloseDBFileClicked" />
-                <SplitButton label="Save" :model="saveItems" class="p-button-outlined" @click="onSaveFileClicked" />
+                <Button label="Close" class="p-button-outlined close-db-file" @click="onCloseDBFileClicked" />
+                <SplitButton label="Save" :model="saveItems" class="p-button-outlined save-db-file" @click="onSaveFileClicked" />
                 <div class="db-filename">
                     <div class="filename-text">{{currentlyOpenedFilename}}
                         <span v-if="fileHasChanged">*</span>
@@ -263,6 +265,10 @@ export default {
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onDbFileInputChanged(event) {
+            this.onDBFileSelected(event.target.value);
         },
 
         onCloseDBFileClicked() {

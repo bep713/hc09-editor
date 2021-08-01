@@ -24,6 +24,10 @@ class ToastMessage {
             return clazz.indexOf(severity) >= 0;
         });
     }
+
+    async closeToast() {
+        await this.page.click('.p-toast-icon-close');
+    }
 };
 
 module.exports = ToastMessage;
