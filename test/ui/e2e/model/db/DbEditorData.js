@@ -136,6 +136,7 @@ class DbEditorData {
         await this.page.click(`.p-datatable-thead th:nth-of-type(${col}) .p-column-filter-menu-button`);
         await this.page.waitForSelector('.p-column-filter-overlay .p-column-filter-matchmode-dropdown');
         await this.page.click('text=Clear');
+        await this.waitForTableToLoad();
     }
 
     async toggleColumnDisplay(colName) {

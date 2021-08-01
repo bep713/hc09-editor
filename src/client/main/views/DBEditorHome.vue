@@ -443,6 +443,8 @@ export default {
             this.changes.push(changeData)
             messageUI.send('db:update-value', changeData);
 
+            this.redoStack = [];
+
             this.$toast.removeAllGroups();
         },
 
@@ -489,9 +491,6 @@ export default {
         },
 
         updateModelUndoRedo(event) {
-            console.log(event);
-            console.log(this.dbModelIndexMapping);
-
             // determine if the row is currently displayed
             const dbModelRow = Object.keys(this.dbModelIndexMapping).find((mappingKey) => {
                 return this.dbModelIndexMapping[mappingKey] === event.row;

@@ -354,6 +354,80 @@ describe('db editor tests', async function () {
         const fileNameAfterSaveKey = await dbEditorData.readFileName();
         expect(fileNameAfterSaveKey).to.equal(DB_FILE_PATH);
     });
+
+    it('undo and redo tests', async () => {
+        const home = new HomePage(page);
+        await home.waitForPageLoad();
+        await home.openDbEditor();
+
+        const recentFiles = new RecentFiles(page);
+
+        const dbEditorHome = new DbEditorHome(page);
+        await dbEditorHome.waitForPageLoad();
+
+        const dbEditorData = new DbEditorData(page);
+        await recentFiles.openRecentFile(1);
+        await dbEditorData.waitForPageLoad();
+        await dbEditorData.waitForTableToLoad();
+
+        await dbEditorData.openTable('COCH');
+
+        await dbEditorData.editTableDataAtIndicies(1, 52, 'Test1');
+        await dbEditorData.editTableDataAtIndicies(1, 53, 'Test2');
+        await dbEditorData.editTableDataAtIndicies(2, 52, 'Test3');
+        await dbEditorData.editTableDataAtIndicies(2, 53, 'Test4');
+        await dbEditorData.editTableDataAtIndicies(3, 52, 'Test5');
+        await dbEditorData.editTableDataAtIndicies(3, 53, 'Test6');
+        await dbEditorData.editTableDataAtIndicies(4, 52, 'Test7');
+        await dbEditorData.editTableDataAtIndicies(4, 53, 'Test8');
+
+        await util.sendUndoKeyboardShortcut(page);
+        await util.sendUndoKeyboardShortcut(page);
+        await util.sendUndoKeyboardShortcut(page);
+        await util.sendUndoKeyboardShortcut(page);
+        
+        const test5 = await dbEditorData.readTableDataAtIndicies(3, 52);
+        expect(test5).not.to.equal('Test5');
+
+        const test6 = await dbEditorData.readTableDataAtIndicies(3, 53);
+
+        const test1 = await dbEditorData.readTableDataAtIndicies(1, 52);
+        expect(test1).to.equal('Test1');
+
+        await util.sendRedoKeyboardShortcut(page);
+
+        const newTest5 = await dbEditorData.readTableDataAtIndicies(3, 52);
+        expect(newTest5).to.equal('Test5');
+
+        const originalTest9 = await dbEditorData.readTableDataAtIndicies(5, 52);
+        await dbEditorData.editTableDataAtIndicies(5, 52, 'Test9');
+        
+        await util.sendRedoKeyboardShortcut(page);
+
+        const newTest6 = await dbEditorData.readTableDataAtIndicies(3, 53);
+        expect(test6).to.equal(newTest6);
+
+        const originalCchm = await dbEditorData.readTableDataAtIndicies(8, 51);
+        await dbEditorData.editTableDataAtIndicies(8, 51, '99');
+
+        // undo/redo still works with filters and different row indicies
+        await dbEditorData.filterColumn(52, 'Equals', 'Danny');
+        await dbEditorData.editTableDataAtIndicies(1, 52, 'Test10');
+
+        await util.sendUndoKeyboardShortcut(page);
+        await util.sendUndoKeyboardShortcut(page);
+
+        const newCchm = await dbEditorData.readTableDataAtIndicies(1, 51);
+        expect(newCchm).to.equal(originalCchm);
+
+        // undo still works if undone cell is off the screen
+        await util.sendUndoKeyboardShortcut(page);
+
+        await dbEditorData.clearFilterOnColumn(52);
+
+        const notTest9 =  await dbEditorData.readTableDataAtIndicies(5, 52);
+        expect(notTest9).to.equal(originalTest9);
+    });
 });
 
 
