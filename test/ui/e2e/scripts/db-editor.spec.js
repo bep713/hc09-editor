@@ -1,7 +1,12 @@
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const kill = require('tree-kill');
 const { expect } = require('chai');
+const { pipeline } = require('stream');
 const { chromium } = require('playwright');
+const util = require('../util/UiTestUtil');
+// const csvParse = require('csv-parse/lib/sync');
 const runDeskgap = require('../../../../lib/deskgap/run');
 
 const HomePage = require('../model/HomePage');
@@ -46,10 +51,37 @@ afterEach(async () => {
     kill(deskgapProcess.pid);
 });
 
-describe('db editor tests', function () {
+function cloneFile(filePath, cloneOutputPath) {
+    return new Promise((resolve, reject) => {
+        pipeline(
+            fs.createReadStream(filePath),
+            fs.createWriteStream(cloneOutputPath),
+            (err) => {
+                if (err) {
+                    reject(err);
+                }
+
+                resolve();
+            }
+        )
+    });
+};
+
+describe('db editor tests', async function () {
     this.timeout(60000);
     const CAREER_FILE_PATH = path.join(__dirname, '../../../data/db/BLUS30128-CAREER-TEST/USR-DATA');
-    const DB_FILE_PATH = path.join(__dirname, '../../../data/db/dbSaveTest.db');
+
+    const PRISTINE_DB_FILE_PATH = path.join(__dirname, '../../../data/db/pristine/pristine-roster.db');
+    const DB_FILE_PATH = path.join(__dirname, '../../../data/db/end-to-end-test.db');
+
+    const EXPORT_PATH = path.join(__dirname, '../../../data/db/export-test.csv');
+    const EXPORT_COMPARE_PATH = path.join(__dirname, '../../../data/db/pristine/export-compare.csv');
+
+    const IMPORT_PATH = path.join(__dirname, '../../../data/db/pristine/import-test.csv');
+
+    beforeEach(async () => {
+        await cloneFile(PRISTINE_DB_FILE_PATH, DB_FILE_PATH);
+    })
 
     it('can open and modify a DB file', async () => {
         const home = new HomePage(page);
@@ -83,8 +115,8 @@ describe('db editor tests', function () {
                 day: '2-digit', 
                 year: 'numeric', 
                 hour12: true, 
-                hour: 'numeric', 
-                minute: 'numeric'
+                hour: '2-digit', 
+                minute: '2-digit'
             }).format(accessTime).replace(',', '')
         });
 
@@ -247,6 +279,7 @@ describe('db editor tests', function () {
         // will show an error message if user enters a number higher than the column max
         await dbEditorData.editTableDataAtIndicies(1, 1, '9999');
         const toast = new ToastMessage(page);
+        await toast.waitForToast();
 
         const severity = await toast.readToastSeverity();
         expect(severity).to.equal('error');
@@ -269,16 +302,67 @@ describe('db editor tests', function () {
         const saveSuccess = await toast.readToastSeverity();
         expect(saveSuccess).to.equal('success');
 
+        await toast.closeToast();
+
         // file name will go back to normal
         const normalFileName = await dbEditorData.readFileName();
         expect(normalFileName).to.equal(DB_FILE_PATH);
 
-        // revert change
-        await dbEditorData.editTableDataAtIndicies(5, 6, 'Browns');
-        await dbEditorData.saveFile();
-        await toast.waitForToast();
-        await dbEditorData.closeFile();
+        // can undo the change
+        await util.sendUndoKeyboardShortcut(page);
+        const undoneValue = await dbEditorData.readTableDataAtIndicies(5, 6);
+        expect(undoneValue).to.equal('Browns');
 
-        // to-do: import, export, undo, redo, save (keyboard), save as
+        // can redo the change
+        await util.sendRedoKeyboardShortcut(page);
+        const redoneValue = await dbEditorData.readTableDataAtIndicies(5, 6);
+        expect(redoneValue).to.equal('Test');
+
+        // reset to original value
+        await util.sendUndoKeyboardShortcut(page);
+
+        // can export a table
+        await dbEditorData.toggleAllColumnsDisplay();
+        await dbEditorData.exportCurrentTable(EXPORT_PATH);
+        await toast.waitForToast();
+
+        const exportToastSeverity = await toast.readToastSeverity();
+        expect(exportToastSeverity).to.equal('success');
+
+        await toast.closeToast();
+        
+        const exportedFile = fs.readFileSync(EXPORT_PATH);
+        const compareFile = fs.readFileSync(EXPORT_COMPARE_PATH);
+        testBufferHashes(exportedFile, compareFile);
+
+        // can import a table
+        await dbEditorData.importCurrentTable(IMPORT_PATH);
+        await toast.closeToast();
+
+        const expectedFirstChange = await dbEditorData.readTableDataAtIndicies(1, 1);
+        expect(expectedFirstChange).to.equal('22');
+
+        const expectedSecondChange = await dbEditorData.readTableDataAtIndicies(5, 7);
+        expect(expectedSecondChange).to.equal('Test');
+
+        await util.sendSaveKeyboardShortcut(page);
+        await toast.waitForToast();
+
+        const saveKeyShortcutSeverity = await toast.readToastSeverity();
+        expect(saveKeyShortcutSeverity).to.equal('success');
+
+        const fileNameAfterSaveKey = await dbEditorData.readFileName();
+        expect(fileNameAfterSaveKey).to.equal(DB_FILE_PATH);
     });
 });
+
+
+function testBufferHashes(bufferToTest, bufferToCompare) {
+    let testHash = crypto.createHash('sha1');
+    testHash.update(bufferToTest);
+
+    let compareHash = crypto.createHash('sha1');
+    compareHash.update(bufferToCompare);
+
+    expect(testHash.digest('hex')).to.eql(compareHash.digest('hex'));
+};

@@ -1,3 +1,5 @@
+const util = require('../../util/UiTestUtil');
+
 class DbEditorData {
     constructor(page) {
         this.page = page;
@@ -5,6 +7,7 @@ class DbEditorData {
 
     async waitForPageLoad() {
         await this.page.waitForSelector('.filename-text');
+        await this.page.waitForSelector('.p-datatable-tbody');
     }
 
     async closeFile() {
@@ -27,11 +30,16 @@ class DbEditorData {
     }
 
     async searchTables(tableSearch) {
-        await this.page.type('.p-tree-filter', tableSearch);
+        await this.page.fill('.p-tree-filter', tableSearch);
     }
 
     async openTableAtIndex(index) {
         await this.page.click(`.p-treenode-leaf:nth-of-type(${index})`);
+    }
+
+    async openTable(name) {
+        await this.searchTables(name);
+        await this.openTableAtIndex(1);
     }
 
     async waitForTableToLoad() {
@@ -104,7 +112,6 @@ class DbEditorData {
     }
 
     async setNumberOfRowsToView(numRecords) {
-        // await this.page.waitForTimeout(60000);
         await this.page.click('.p-paginator-rpp-options');
         await this.page.click(`.p-dropdown-item[aria-label="${numRecords}"]`);
         await this.waitForTableToLoad();
@@ -139,12 +146,27 @@ class DbEditorData {
         await this.page.click('.column-select');
     }
 
+    async toggleAllColumnsDisplay() {
+        await this.page.click('.column-select');
+        await this.page.waitForSelector('.p-multiselect-item');
+        await this.page.click('.p-multiselect-header .p-checkbox');
+    }
+
     async editTableDataAtIndicies(row, col, data) {
         await this.page.click(`.p-datatable-tbody tr:nth-of-type(${row}) td:nth-of-type(${col})`);
         await this.page.waitForSelector(`.p-datatable-tbody tr:nth-of-type(${row}) td:nth-of-type(${col}) .p-inputtext`);
-        await this.page.waitForTimeout(1000);
+        await this.page.waitForTimeout(200);
         await this.page.keyboard.type(data);
         await this.page.keyboard.press('Enter');
+    }
+
+    async exportCurrentTable(exportOutput) {
+        await util.enterFilePath(this.page, '#export-path', exportOutput);
+    }
+
+    async importCurrentTable(importPath) {
+        await util.enterFilePath(this.page, '#import-path', importPath);
+        await this.waitForTableToLoad();
     }
 };
 

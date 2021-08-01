@@ -134,6 +134,7 @@ export default {
             if (this.lastImportEvent) {
                 this.isReading = true;
                 this.onPage(this.lastImportEvent);
+                this.lastImportEvent = null;
             }
             
             this.isImporting = false;
@@ -363,49 +364,68 @@ export default {
             });
         },
 
-        onExport() {
-            asyncNode.require('deskgap').then(function(deskgap) {
-                return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
-                    title: 'Select export save location',
-                    filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
-                }).resolve().value();
-            }).then((result) => {
-                if (!result.cancelled && result.filePath) {
-                    this.isExporting = true;
+        onExport(event) {
+            if (!event) {
+                asyncNode.require('deskgap').then(function(deskgap) {
+                    return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
+                        title: 'Select export save location',
+                        filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
+                    }).resolve().value();
+                }).then((result) => {
+                    if (!result.cancelled && result.filePath) {
+                        this.exportTable(result.filePath);
+                    }
+                }).catch((err) => {
+                    console.log(err);
+                });
+            }
+            else {
+                this.exportTable(event.path, false);
+            }
+        },
 
-                    messageUI.send('db:export-table', {
-                        tableName: this.selectedTableName,
-                        options: {
-                            exportLocation: result.filePath,
-                            openFile: true
-                        }
-                    });
+        exportTable(outputPath, openFile=true) {
+            this.isExporting = true;
+    
+            messageUI.send('db:export-table', {
+                tableName: this.selectedTableName,
+                options: {
+                    exportLocation: outputPath,
+                    openFile: openFile
                 }
-            }).catch((err) => {
-                console.log(err);
             });
         },
 
         onImport(event) {
-            asyncNode.require('deskgap').then(function(deskgap) {
-                return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
-                    title: 'Select file to import',
-                    filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
-                }).resolve().value();
-            }).then((result) => {
-                if (!result.cancelled && result.filePaths) {
-                    this.isImporting = true;
-                    this.lastImportEvent = event;
+            if (event && !event.path) {
+                asyncNode.require('deskgap').then(function(deskgap) {
+                    return deskgap.prop('dialog').invoke('showOpenDialogAsync', asyncNode.getCurrentWindow(), {
+                        title: 'Select file to import',
+                        filters: [{ name: 'CSV', extensions: ['csv'] }, { name: 'XLSX', extensions: ['xlsx'] }, { name: 'Any', extensions: ['*'] }]
+                    }).resolve().value();
+                }).then((result) => {
+                    if (!result.cancelled && result.filePaths) {
+                        event.path = result.filePaths[0];
+                        this.importTable(event);
+                    }
+                }).catch((err) => {
+                    console.log(err);
+                });
+            }
+            else {
+                this.importTable(event);
+            }
+        },
 
-                    messageUI.send('db:import-table', {
-                        tableName: this.selectedTableName,
-                        options: {
-                            importLocation: result.filePaths[0]
-                        }
-                    });
+        importTable(event) {
+            this.isImporting = true;
+            this.lastImportEvent = event;
+
+            messageUI.send('db:import-table', {
+                tableName: this.selectedTableName,
+                options: {
+                    importLocation: event.path
                 }
-            }).catch((err) => {
-                console.log(err);
             });
         },
 

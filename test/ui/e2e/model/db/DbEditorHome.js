@@ -1,3 +1,5 @@
+const util = require('../../util/UiTestUtil');
+
 class DbEditorHome {
     constructor(page) {
         this.page = page;
@@ -12,9 +14,7 @@ class DbEditorHome {
     }
 
     async openDbFile(file) {
-        await this.page.evaluate(`const textbox = document.querySelector('#db-file'); textbox.classList.remove('hidden');`);
-        await this.page.type('#db-file', file);
-        await this.page.keyboard.press('Enter');
+        await util.enterFilePath(this.page, '#db-file', file);
     }
 };
 

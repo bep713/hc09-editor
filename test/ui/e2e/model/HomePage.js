@@ -1,3 +1,5 @@
+const util = require('../util/UiTestUtil');
+
 class HomePage {
     constructor(page) {
         this.page = page;
@@ -8,9 +10,7 @@ class HomePage {
     }
 
     async loadCareerFile(file) {
-        await this.page.evaluate(`const textbox = document.querySelector('#career-file'); textbox.classList.remove('hidden');`);
-        await this.page.type('#career-file', file);
-        await this.page.keyboard.press('Enter');
+        await util.enterFilePath(this.page, '#career-file', file);
     }
 
     async editGameFiles() {

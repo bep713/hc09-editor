@@ -57,7 +57,6 @@ dbApi.initializeListeners = (mainWindow) => {
         dbEditorService.exportTable(data.tableName, data.options)
             .then(() => {
                 if (data.options.openFile) {
-                    // open(data.options.exportLocation);
                     child_process.exec('start excel "' + data.options.exportLocation + '"', {
                         windowsHide: true
                     })

@@ -15,6 +15,9 @@
                     <div class="right-content">
                         <Button label="Export" class="p-button-outlined" icon="pi pi-fw pi-download" @click="onExportClicked" />
                         <Button label="Import" class="p-button-outlined" icon="pi pi-fw pi-upload" @click="onImportClicked" />
+
+                        <input id="export-path" class="hidden" @change="onExportInputChanged" />
+                        <input id="import-path" class="hidden" @change="onImportInputChanged" />
                     </div>
                 </div>
             </template>
@@ -234,6 +237,25 @@ export default {
             this.showUnderlay = false;
             document.dispatchEvent(new Event('click'));
         },
+
+        onExportInputChanged(event) {
+            this.$emit('export', {
+                'path': event.target.value
+            });
+        },
+
+        onImportInputChanged(event) {
+            const dt = this.$refs.dt;
+            
+            this.$emit('import', {
+                'first': dt.d_first,
+                'filters': dt.d_filters,
+                'rows': dt.d_rows,
+                'sortField': dt.d_sortField,
+                'sortOrder': dt.d_sortOrder,
+                'path': event.target.value
+            });
+        }
     },
 
     watch: {

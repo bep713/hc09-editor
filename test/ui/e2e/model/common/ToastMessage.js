@@ -27,6 +27,7 @@ class ToastMessage {
 
     async closeToast() {
         await this.page.click('.p-toast-icon-close');
+        await this.page.waitForSelector('.p-toast-icon-close', { state: 'detached' });
     }
 };
 
