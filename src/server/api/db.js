@@ -24,7 +24,7 @@ dbApi.initializeListeners = (mainWindow) => {
 
     ipcMain.on('db:open-file', (_, data) => {
         dbEditorService.openFile(data)
-        .then(() => {
+            .then(() => {
                 dbApi.recentFileService.addFile('recentDBFiles', {
                     'path': data,
                     'type': 'single'

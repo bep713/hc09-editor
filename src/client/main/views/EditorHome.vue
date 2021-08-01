@@ -4,6 +4,7 @@
 
         <ul class="menu-wrapper">
             <HCMenuItem text="Change Team" :backgroundColor="currentTeamBackgroundColor" @click="onChangeTeamClicked" />
+            <HCMenuItem text="Edit Coaches" :backgroundColor="currentTeamBackgroundColor" @click="onEditCoachesClicked" />
             <HCMenuItem text="Save Career" :backgroundColor="currentTeamBackgroundColor" @click="onSaveCareerClicked" />
             <HCMenuItem text="Close File"  :backgroundColor="currentTeamBackgroundColor" @click="onCloseFileClicked" />
         </ul>
@@ -16,6 +17,10 @@
 
         <Dialog :modal="true" :closable="false" v-model:visible="saving">
             <ProgressSpinner />
+        </Dialog>
+
+        <Dialog header="Edit coaches" :modal="true" :dismissableMask="true" :maximizable="true" v-model:visible="showCoachEditor">
+            <CoachEditor />
         </Dialog>
 
         <Toast position="bottom-right" />
@@ -31,9 +36,11 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import ProgressSpinner from 'primevue/progressspinner';
 
 import HCMenuItem from '../components/HCMenuItem';
+import CoachEditor from '../components/CoachEditor';
 import HCTeamPicker from '../components/HCTeamPicker';
 
 import importAll from '../../util/import-all';
+import API from '../../util/server-api-definition';
 
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
@@ -50,6 +57,7 @@ export default {
         ConfirmDialog,
         ProgressSpinner,
         HCMenuItem,
+        CoachEditor,
         HCTeamPicker
     },
     created() {
@@ -79,6 +87,7 @@ export default {
             }
         });
 
+        
         messageUI.send('get-career-info');
     },
     computed: {
@@ -106,6 +115,7 @@ export default {
             info: null,
             saving: false,
             currentTeam: null,
+            showCoachEditor: false,
             hasUnsavedChanges: false,
             showTeamPickerModal: false
         }
@@ -147,6 +157,9 @@ export default {
             this.currentTeam = team;
             this.info._teamId = this.currentTeam.TGID;
             this.hasUnsavedChanges = true;
+        },
+        onEditCoachesClicked: function () {
+            this.showCoachEditor = true;
         }
     },
     unmounted() {
