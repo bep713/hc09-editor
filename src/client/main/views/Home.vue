@@ -7,6 +7,8 @@
                     <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
                     <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-file" @click="onEditGameFilesClicked" />
                     <Button label="Open DB Editor" class="p-button-outlined" icon="pi pi-file" @click="onOpenDBEditorClicked" />
+
+                    <input type="text" class="hidden" id="career-file" @change="onInputFileChanged" />
                 </div>
             </div>
         </div>
@@ -58,6 +60,10 @@ export default {
             }).catch((err) => {
                 console.log(err);
             })
+        },
+
+        onInputFileChanged: function (event) {
+            this.onFileSelectedInDialog(event.target.value)
         },
 
         onFileSelectedInDialog: function (path) {
@@ -122,5 +128,9 @@ export default {
             margin-top: 15px;
         }
     }
+}
+
+.hidden {
+    visibility: hidden;
 }
 </style>

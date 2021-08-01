@@ -1,6 +1,6 @@
 <template>
-    <div class="editor-home-container" :style="{ 'background-image': `url(${currentTeamBackground})` }">
-        <HCMenuItem :text="fileName" :backgroundColor="currentTeamBackgroundColor" :clickable="false" :focused="true" />
+    <div class="editor-home-container" :style="{ 'background-image': `url(${currentTeamBackground})` }" :data-current-team="currentTeam && currentTeam.nickName">
+        <HCMenuItem class="fileName" :text="fileName" :backgroundColor="currentTeamBackgroundColor" :clickable="false" :focused="true" />
 
         <ul class="menu-wrapper">
             <HCMenuItem text="Change Team" :backgroundColor="currentTeamBackgroundColor" @click="onChangeTeamClicked" />
