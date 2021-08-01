@@ -18,38 +18,6 @@ const UnsavedChangesModal = require('../model/common/UnsavedChangesModal');
 
 let browser, page, deskgapProcess;
 
-beforeEach(async () => {
-    process.env.NODE_ENV = 'test';
-    deskgapProcess = runDeskgap(path.join(__dirname, '../../../../lib/deskgap/dist'), path.join(__dirname, '../../../../'));
-
-    return new Promise((resolve, reject) => {
-        let tries = 0;
-        let interval = setInterval(async () => {
-            try {
-                browser = await chromium.connectOverCDP({
-                    endpointURL: 'http://localhost:9223'
-                });
-            
-                page = browser.contexts()[0].pages()[0];
-                
-                clearInterval(interval);
-                resolve();
-            }
-            catch (err) {
-                tries += 1;
-
-                if (tries > 10) {
-                    clearInterval(interval);
-                    reject();
-                }
-            }
-        }, 100);
-    });
-});
-
-afterEach(async () => {
-    kill(deskgapProcess.pid);
-});
 
 function cloneFile(filePath, cloneOutputPath) {
     return new Promise((resolve, reject) => {
@@ -60,17 +28,50 @@ function cloneFile(filePath, cloneOutputPath) {
                 if (err) {
                     reject(err);
                 }
-
+                
                 resolve();
             }
         )
     });
 };
-
+    
 describe('db editor tests', async function () {
+    beforeEach(async () => {
+        process.env.NODE_ENV = 'test';
+        deskgapProcess = runDeskgap(path.join(__dirname, '../../../../lib/deskgap/dist'), path.join(__dirname, '../../../../'));
+    
+        return new Promise((resolve, reject) => {
+            let tries = 0;
+            let interval = setInterval(async () => {
+                try {
+                    browser = await chromium.connectOverCDP({
+                        endpointURL: 'http://localhost:9223'
+                    });
+                
+                    page = browser.contexts()[0].pages()[0];
+                    
+                    clearInterval(interval);
+                    resolve();
+                }
+                catch (err) {
+                    tries += 1;
+    
+                    if (tries > 10) {
+                        clearInterval(interval);
+                        reject();
+                    }
+                }
+            }, 100);
+        });
+    });
+    
+    afterEach(async () => {
+        kill(deskgapProcess.pid);
+    });
+
     this.timeout(60000);
     const CAREER_FILE_PATH = path.join(__dirname, '../../../data/db/BLUS30128-CAREER-TEST/USR-DATA');
-
+        
     const PRISTINE_DB_FILE_PATH = path.join(__dirname, '../../../data/db/pristine/pristine-roster.db');
     const DB_FILE_PATH = path.join(__dirname, '../../../data/db/end-to-end-test.db');
 

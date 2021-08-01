@@ -83,7 +83,7 @@ describe('db editor service unit tests', () => {
 
     describe('can open a HC09 career file', () => {
         it('returns expected number of tables', async () => {
-            await dbEditorService.openFile(path.join(__dirname, '../data/db/USR-DATA_CAREER'));
+            await dbEditorService.openFile(path.join(__dirname, '../data/db/BLUS30128-CAREER-TEST/USR-DATA'));
             const result = dbEditorService.getTables();
             expect(result.length).to.eql(208);
         });
