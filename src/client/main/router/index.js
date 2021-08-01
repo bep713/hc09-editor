@@ -3,8 +3,8 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import Home from '../views/Home';
 import SettingsHome from '../views/Settings';
 import EditorHome from '../views/EditorHome';
-import GameFilesEditorHome from '../views/GameFilesEditorHome';
 import DBEditorHome from '../views/DBEditorHome';
+import GameFilesEditorHome from '../views/GameFilesEditorHome';
 
 const routes = [
     {
