@@ -372,6 +372,7 @@ describe('db editor tests', async function () {
 
         await dbEditorData.openTable('COCH');
 
+        // can undo many values
         await dbEditorData.editTableDataAtIndicies(1, 52, 'Test1');
         await dbEditorData.editTableDataAtIndicies(1, 53, 'Test2');
         await dbEditorData.editTableDataAtIndicies(2, 52, 'Test3');
@@ -394,6 +395,7 @@ describe('db editor tests', async function () {
         const test1 = await dbEditorData.readTableDataAtIndicies(1, 52);
         expect(test1).to.equal('Test1');
 
+        // can redo after undoing
         await util.sendRedoKeyboardShortcut(page);
 
         const newTest5 = await dbEditorData.readTableDataAtIndicies(3, 52);
@@ -402,6 +404,7 @@ describe('db editor tests', async function () {
         const originalTest9 = await dbEditorData.readTableDataAtIndicies(5, 52);
         await dbEditorData.editTableDataAtIndicies(5, 52, 'Test9');
         
+        // cannot redo after editing a cell
         await util.sendRedoKeyboardShortcut(page);
 
         const newTest6 = await dbEditorData.readTableDataAtIndicies(3, 53);
