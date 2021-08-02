@@ -19,8 +19,8 @@
             <ProgressSpinner />
         </Dialog>
 
-        <Dialog header="Edit coaches" :modal="true" :dismissableMask="true" :maximizable="true" v-model:visible="showCoachEditor">
-            <CoachEditor />
+        <Dialog header="Edit coaches" :modal="true" :maximizable="true" v-model:visible="showCoachEditor">
+            <CoachEditor :coachModel="coachModel" />
         </Dialog>
 
         <Toast position="bottom-right" />
@@ -41,9 +41,12 @@ import HCTeamPicker from '../components/HCTeamPicker';
 
 import importAll from '../../util/import-all';
 import API from '../../../util/server-api-definition';
+import MessageUIHelper from '../../util/message-ui-helper';
 
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
+
+const messageUIHelper = new MessageUIHelper();
 
 const loadingScreens = importAll(require.context('../../img/city-loading-screens', false, /\.webp$/));
 
@@ -61,14 +64,14 @@ export default {
         HCTeamPicker
     },
     created() {
-        messageUI.on(API.CAREER.GET_CAREER_INFO, (_, info) => {
+        messageUIHelper.on(API.CAREER.GET_CAREER_INFO, (_, info) => {
             this.info = info;
             this.currentTeam = info._teamData.find((team) => {
                 return team.TGID === info._teamId;
             });
         });
 
-        messageUI.on(API.CAREER.SAVE_CAREER_INFO, (_, status) => {
+        messageUIHelper.on(API.CAREER.SAVE_CAREER_INFO, (_, status) => {
             this.saving = false;
 
             if (status._success) {
@@ -87,7 +90,21 @@ export default {
             }
         });
 
+        messageUIHelper.on(API.COACH.GET_ALL_COACHES, (_, res) => {
+            if (!res._success) {
+                this.$toast.add({
+                    severity: 'error',
+                    summary: 'Read error',
+                    detail: 'Could not read coaches from the career file. To retry, please close and re-open the file.',
+                    life: 2000
+                });
+            }
+
+            this.coachModel = res.results;
+        });
+
         messageUI.send(API.CAREER.GET_CAREER_INFO);
+        messageUI.send(API.COACH.GET_ALL_COACHES);
     },
     computed: {
         fileName() {
@@ -113,6 +130,7 @@ export default {
         return {
             info: null,
             saving: false,
+            coachModel: [],
             currentTeam: null,
             showCoachEditor: false,
             hasUnsavedChanges: false,
@@ -162,8 +180,7 @@ export default {
         }
     },
     unmounted() {
-        messageUI.removeAllListeners(API.CAREER.GET_CAREER_INFO);
-        messageUI.removeAllListeners(API.CAREER.SAVE_CAREER_INFO);
+        messageUIHelper.removeAll();
     }
 }
 </script>
