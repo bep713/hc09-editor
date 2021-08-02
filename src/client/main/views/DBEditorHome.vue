@@ -50,17 +50,23 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import RecentFilesList from '../components/RecentFilesList';
 import DBEditorDataTable from '../components/DBEditorDataTable.vue';
 
+import API from '../../../util/server-api-definition';
+import MessageUIHelper from '../../util/message-ui-helper';
+
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
+
+const messageUIHelper = new MessageUIHelper();
 
 export default {
     name: 'DBEditorHome',
     created() {
-        messageUI.on('db:get-recent-files', (_, res) => {
+        messageUIHelper.on(API.DB.GET_RECENT_FILES, (_, res) => {
             this.recentFiles = res.results;
         });
 
-        messageUI.on('db:open-file', (_, res) => {
+        messageUIHelper.on(API.DB.OPEN_DB_FILE, (_, res) => {
+            console.log(res);
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -89,7 +95,7 @@ export default {
             }
         });
 
-        messageUI.on('db:get-records', (_, res) => {
+        messageUIHelper.on(API.DB.GET_RECORDS, (_, res) => {
             this.isReading = false;
 
             if (!res._success) {
@@ -109,7 +115,7 @@ export default {
             }
         });
 
-        messageUI.on('db:export-table', (_, res) => {
+        messageUIHelper.on(API.DB.EXPORT_TABLE, (_, res) => {
             this.isExporting = false;
 
             if (!res._success) {
@@ -132,7 +138,7 @@ export default {
             }
         });
 
-        messageUI.on('db:import-table', (_, res) => {
+        messageUIHelper.on(API.DB.IMPORT_TABLE, (_, res) => {
             if (this.lastImportEvent) {
                 this.isReading = true;
                 this.onPage(this.lastImportEvent);
@@ -161,7 +167,7 @@ export default {
             }
         });
 
-        messageUI.on('db:update-value', (_, res) => {
+        messageUIHelper.on(API.DB.UPDATE_RECORD_VALUE, (_, res) => {
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -175,7 +181,7 @@ export default {
             console.log(res);
         });
 
-        messageUI.on('db:save-file', (_, res) => {
+        messageUIHelper.on(API.DB.SAVE_FILE, (_, res) => {
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -196,8 +202,7 @@ export default {
             }
         });
 
-        messageUI.send('db:get-recent-files');
-
+        messageUI.send(API.DB.GET_RECENT_FILES);
         window.addEventListener('keydown', this.keydownListener);
     },
     components: {
@@ -293,7 +298,7 @@ export default {
             }
 
             function closeFile() {
-                messageUI.send('db:get-recent-files');
+                messageUI.send(API.DB.GET_RECENT_FILES);
                 this.changes = [];
                 this.dbModel = null;
                 this.treeModel = null;
@@ -304,7 +309,9 @@ export default {
         onDBFileSelected(path) {
             this.fileHasChanged = false;
             this.currentlyOpenedFilename = path;
-            messageUI.send('db:open-file', path);
+            messageUI.send(API.DB.OPEN_DB_FILE, {
+                path: path
+            });
         },
 
         onRecentFileClicked(file) {
@@ -312,7 +319,7 @@ export default {
         },
 
         onRecentFileRemoved(file) {
-            messageUI.send('db:remove-recent-file', file);
+            messageUI.send(API.DB.REMOVE_RECENT_DB_FILE, file);
         },
 
         onTableSelect(node) {
@@ -360,7 +367,7 @@ export default {
         },
 
         getRecords(tableName, options) {
-            messageUI.send('db:get-records', {
+            messageUI.send(API.DB.GET_RECORDS, {
                 tableName: tableName,
                 options: options
             });
@@ -389,7 +396,7 @@ export default {
         exportTable(outputPath, openFile=true) {
             this.isExporting = true;
     
-            messageUI.send('db:export-table', {
+            messageUI.send(API.DB.EXPORT_TABLE, {
                 tableName: this.selectedTableName,
                 options: {
                     exportLocation: outputPath,
@@ -423,7 +430,7 @@ export default {
             this.isImporting = true;
             this.lastImportEvent = event;
 
-            messageUI.send('db:import-table', {
+            messageUI.send(API.DB.IMPORT_TABLE, {
                 tableName: this.selectedTableName,
                 options: {
                     importLocation: event.path
@@ -443,7 +450,7 @@ export default {
             };
 
             this.changes.push(changeData)
-            messageUI.send('db:update-value', changeData);
+            messageUI.send(API.DB.UPDATE_RECORD_VALUE, changeData);
 
             this.redoStack = [];
 
@@ -452,7 +459,7 @@ export default {
 
         onCellUndoRedo(event) {
             this.fileHasChanged = true;
-            messageUI.send('db:update-value', event);
+            messageUI.send(API.DB.UPDATE_RECORD_VALUE, event);
             this.$toast.removeAllGroups();
         },
 
@@ -472,7 +479,7 @@ export default {
         },
 
         onSaveFileClicked() {
-            messageUI.send('db:save-file');
+            messageUI.send(API.DB.SAVE_FILE);
         },
 
         onSaveAsClicked() {
@@ -495,7 +502,7 @@ export default {
         },
 
         onSaveAs(path) {
-            messageUI.send('db:save-file', {
+            messageUI.send(API.DB.SAVE_FILE, {
                 path: path
             });
         },
@@ -563,14 +570,7 @@ export default {
         }
     },
     unmounted() {
-        messageUI.removeAllListeners('db:get-recent-files');
-        messageUI.removeAllListeners('db:open-file');
-        messageUI.removeAllListeners('db:get-records');
-        messageUI.removeAllListeners('db:export-table');
-        messageUI.removeAllListeners('db:import-table');
-        messageUI.removeAllListeners('db:update-value');
-        messageUI.removeAllListeners('db:save-file');
-
+        messageUIHelper.removeAll();
         window.removeEventListener('keydown', this.keydownListener);
     }
 }

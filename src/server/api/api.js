@@ -2,44 +2,54 @@ const path = require('path');
 const log = require('../../util/logger');
 const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('../model/CareerInfo');
+const API = require('../../util/server-api-definition');
 const EventResponse = require('../model/EventResponse');
 const recentFileService = require('../recent-files-service');
 const changedNodeService = require('../changed-node-service');
-const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
+const dbEditorService = require('../editors/db-editor-service');
 const astEditorService = require('../editors/ast-editor-service');
+const HC09Helper = require('madden-file-tools/helpers/HC09Helper');
 
 const dbApi = require('./db');
+const coachApi = require('./coach');
 
 let helper;
 
 module.exports.initializeListeners = function (mainWindow) {
     recentFileService.initialize();
     changedNodeService.initialize();
-    dbApi.initialize(recentFileService);
+
+    dbApi.initialize(recentFileService, dbEditorService);
     dbApi.initializeListeners(mainWindow);
+
+    coachApi.initialize(dbEditorService);
+    coachApi.initializeListeners(mainWindow);
 
     ipcMain.on('get-version', () => {
         mainWindow.webContents.send('get-version', app.getVersion());
     });
 
-    ipcMain.on('open-file', (_, path) => {
-        helper = new HC09Helper();
-        helper.load(path)
-            .then(() => {
-                const readRecordsPromises = [helper.file.DEID.readRecords(), helper.file.TEAM.readRecords()];
+    // ipcMain.on('open-file', (_, path) => {
+    //     helper = new HC09Helper();
+    //     helper.load(path)
+    //         .then(() => {
+    //             const readRecordsPromises = [helper.file.DEID.readRecords(), helper.file.TEAM.readRecords()];
 
-                Promise.all(readRecordsPromises)
-                    .then(() => {
-                        mainWindow.webContents.send('file-loaded', path);
-                    });
-            });
-    });
+    //             Promise.all(readRecordsPromises)
+    //                 .then(() => {
+    //                     mainWindow.webContents.send('file-loaded', path);
+    //                 });
+    //         });
+    // });
 
-    ipcMain.on('get-career-info', () => {
+    ipcMain.on(API.CAREER.GET_CAREER_INFO, async () => {
+        const readRecordsPromises = [dbEditorService.activeDbHelper.file.DEID.readRecords(), dbEditorService.activeDbHelper.file.TEAM.readRecords()];
+        await Promise.all(readRecordsPromises);
+        
         const careerInfo = new CareerInfo();
-        careerInfo.filePath = helper.filePath;
-        careerInfo.teamId = helper.file.DEID.records[0].fields['TGID'].value;
-        careerInfo.teamData = helper.file.TEAM.records.map((team) => {
+        careerInfo.filePath = dbEditorService.activeDbHelper.filePath;
+        careerInfo.teamId = dbEditorService.activeDbHelper.file.DEID.records[0].fields['TGID'].value;
+        careerInfo.teamData = dbEditorService.activeDbHelper.file.TEAM.records.map((team) => {
             return {
                 'TGID': team._fields['TGID'].value,
                 'cityName': team._fields['TLNA'].value,
@@ -51,14 +61,14 @@ module.exports.initializeListeners = function (mainWindow) {
                 }
             }
         });
-
+        
         mainWindow.webContents.send('get-career-info', careerInfo)
     });
 
-    ipcMain.on('save-career-info', (_, careerInfo) => {
-        helper.file.DEID.records[0].fields['TGID'].value = careerInfo._teamId;
+    ipcMain.on(API.CAREER.SAVE_CAREER_INFO, (_, careerInfo) => {
+        dbEditorService.activeDbHelper.file.DEID.records[0].fields['TGID'].value = careerInfo._teamId;
 
-        helper.save()
+        dbEditorService.activeDbHelper.save()
             .then(() => {
                 const response = new EventResponse(true);
                 mainWindow.webContents.send('save-career-info', response);

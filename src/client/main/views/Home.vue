@@ -19,8 +19,13 @@
 import Button from 'primevue/button';
 import HomeHeader from '../components/HomeHeader';
 
+import API from '../../../util/server-api-definition';
+import MessageUIHelper from '../../util/message-ui-helper';
+
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
+
+const messageUIHelper = new MessageUIHelper();
 
 export default {
     components: {
@@ -28,12 +33,13 @@ export default {
         HomeHeader
     },
     created() {
-        messageUI.send('get-version');
-        messageUI.on('get-version', (_, data) => {
+        messageUI.send(API.GENERAL.GET_VERSION);
+        
+        messageUIHelper.on(API.GENERAL.GET_VERSION, (_, data) => {
             this.version = data;
         });
 
-        messageUI.on('file-loaded', (_, data) => {
+        messageUIHelper.on(API.DB.OPEN_DB_FILE, (_, data) => {
             this.isLoading = false;
             this.fileLoaded = true;
             this.$router.push('/editor/home');
@@ -70,7 +76,10 @@ export default {
             this.isLoading = true;
             this.buttonText = 'Loading Selected File';
 
-            messageUI.send('open-file', path);
+            messageUI.send(API.DB.OPEN_DB_FILE, {
+                path: path,
+                omitFromRecentFiles: true
+            });
         },
 
         onEditGameFilesClicked: function () {
@@ -86,8 +95,7 @@ export default {
         }
     },
     unmounted() {
-        messageUI.removeAllListeners('get-version');
-        messageUI.removeAllListeners('file-loaded');
+        messageUIHelper.removeAll();
     }
 }
 </script>

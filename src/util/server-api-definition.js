@@ -5,6 +5,7 @@ module.exports = {
     },
     'DB': {
         'OPEN_DB_FILE': 'db:open-file',
+        'GET_DB_FILE_INFO': 'db:get-file-info',
         'GET_RECENT_FILES': 'db:get-recent-files',
         'REMOVE_RECENT_DB_FILE': 'db:remove-recent-file',
         'GET_RECORDS': 'db:get-records',
@@ -31,5 +32,8 @@ module.exports = {
         'PREVIEW': 'preview',
         'PREVIEWS_DONE': 'previews-done',
         'REVERT_NODE': 'revert-node'
+    },
+    'COACH': {
+        'GET_ALL_COACHES': 'coach:get-all-coaches'
     }
 }

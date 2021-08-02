@@ -40,7 +40,7 @@ import CoachEditor from '../components/CoachEditor';
 import HCTeamPicker from '../components/HCTeamPicker';
 
 import importAll from '../../util/import-all';
-import API from '../../util/server-api-definition';
+import API from '../../../util/server-api-definition';
 
 const asyncNode = window.deskgap.asyncNode;
 const messageUI = window.deskgap.messageUI;
@@ -61,14 +61,14 @@ export default {
         HCTeamPicker
     },
     created() {
-        messageUI.on('get-career-info', (_, info) => {
+        messageUI.on(API.CAREER.GET_CAREER_INFO, (_, info) => {
             this.info = info;
             this.currentTeam = info._teamData.find((team) => {
                 return team.TGID === info._teamId;
             });
         });
 
-        messageUI.on('save-career-info', (_, status) => {
+        messageUI.on(API.CAREER.SAVE_CAREER_INFO, (_, status) => {
             this.saving = false;
 
             if (status._success) {
@@ -87,8 +87,7 @@ export default {
             }
         });
 
-        
-        messageUI.send('get-career-info');
+        messageUI.send(API.CAREER.GET_CAREER_INFO);
     },
     computed: {
         fileName() {
@@ -146,7 +145,7 @@ export default {
             this.showTeamPickerModal = true;
         },
         onSaveCareerClicked: function () {
-            messageUI.send('save-career-info', this.info);
+            messageUI.send(API.CAREER.SAVE_CAREER_INFO, this.info);
             this.saving = true;
         },
         onChangeTeamDialogClosed: function () {
@@ -163,8 +162,8 @@ export default {
         }
     },
     unmounted() {
-        messageUI.removeAllListeners('get-career-info');
-        messageUI.removeAllListeners('save-career-info');
+        messageUI.removeAllListeners(API.CAREER.GET_CAREER_INFO);
+        messageUI.removeAllListeners(API.CAREER.SAVE_CAREER_INFO);
     }
 }
 </script>
