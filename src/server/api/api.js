@@ -1,9 +1,11 @@
 const path = require('path');
+const Conf = require('conf');
 const log = require('../../util/logger');
 const { app, ipcMain } = require('deskgap');
 const CareerInfo = require('../model/CareerInfo');
 const API = require('../../util/server-api-definition');
 const EventResponse = require('../model/EventResponse');
+const settingsHelper = require('../helpers/settings-helper');
 const recentFileService = require('../recent-files-service');
 const changedNodeService = require('../changed-node-service');
 const dbEditorService = require('../editors/db-editor-service');
@@ -18,11 +20,12 @@ let helper;
 module.exports.initializeListeners = function (mainWindow) {
     recentFileService.initialize();
     changedNodeService.initialize();
+    settingsHelper.initialize();
 
-    dbApi.initialize(recentFileService, dbEditorService);
+    dbApi.initialize(recentFileService, dbEditorService, settingsHelper);
     dbApi.initializeListeners(mainWindow);
 
-    coachApi.initialize(dbEditorService);
+    coachApi.initialize(dbEditorService, settingsHelper);
     coachApi.initializeListeners(mainWindow);
 
     ipcMain.on('get-version', () => {
@@ -78,6 +81,16 @@ module.exports.initializeListeners = function (mainWindow) {
                 response.errorMessage = err;
                 mainWindow.webContents.send('save-career-info', response);
             });
+    });
+
+    ipcMain.on(API.GENERAL.GET_SETTINGS, (options) => {
+        const response = new EventResponse(true);
+        response.results = settingsHelper.getAllSettings();
+        mainWindow.webContents.send(API.GENERAL.GET_SETTINGS, response);
+    });
+
+    ipcMain.on(API.GENERAL.SET_SETTING_VALUE, (_, data) => {
+        settingsHelper.config.set(data.key, data.value);
     });
 
     ipcMain.on('open-root-folder', (_, path) => {

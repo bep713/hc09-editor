@@ -6,7 +6,7 @@ const dbQueryHelper = require('../helpers/db-query-helper');
 
 let coachApi = {};
 
-coachApi.initialize = (dbEditorService) => {
+coachApi.initialize = (dbEditorService, config) => {
     coachApi.dbEditorService = dbEditorService;
     dbQueryHelper.initialize(dbEditorService);
 };

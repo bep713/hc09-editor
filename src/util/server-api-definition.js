@@ -1,7 +1,10 @@
 module.exports = {
     'GENERAL': {
         'GET_VERSION': 'get-version',
-        'SET_PROGRESS_VALUE': 'set-progress-value'
+        'SET_PROGRESS_VALUE': 'set-progress-value',
+        'SET_GAME_ROOT_FOLDER': 'set-game-root-folder',
+        'GET_SETTINGS': 'get-settings',
+        'SET_SETTING_VALUE': 'set-setting-value'
     },
     'DB': {
         'OPEN_DB_FILE': 'db:open-file',

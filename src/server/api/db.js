@@ -7,7 +7,7 @@ const API = require('../../util/server-api-definition');
 
 let dbApi = {};
 
-dbApi.initialize = (recentFileService, dbEditorService) => {
+dbApi.initialize = (recentFileService, dbEditorService, config) => {
     dbApi.recentFileService = recentFileService;
     dbApi.dbEditorService = dbEditorService;
 };

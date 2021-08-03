@@ -1,0 +1,10 @@
+{
+    "gameRootFolder": {
+        "schema": {
+            "type": "string",
+            "default": ""
+        },
+        "uiName": "Game root folder",
+        "uiType": "folder"
+    }
+}

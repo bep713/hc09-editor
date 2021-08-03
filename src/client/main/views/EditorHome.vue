@@ -6,6 +6,7 @@
             <HCMenuItem text="Change Team" :backgroundColor="currentTeamBackgroundColor" @click="onChangeTeamClicked" />
             <HCMenuItem text="Edit Coaches" :backgroundColor="currentTeamBackgroundColor" @click="onEditCoachesClicked" />
             <HCMenuItem text="Save Career" :backgroundColor="currentTeamBackgroundColor" @click="onSaveCareerClicked" />
+            <HCMenuItem text="App Settings" :backgroundColor="currentTeamBackgroundColor" @click="onAppSettingsClicked" />
             <HCMenuItem text="Close File"  :backgroundColor="currentTeamBackgroundColor" @click="onCloseFileClicked" />
         </ul>
 
@@ -23,7 +24,23 @@
             <CoachEditor :coachModel="coachModel" />
         </Dialog>
 
+        <Dialog header="Edit settings" :modal="true" :maximizable="true" v-model:visible="showSettings">
+            <SettingsView :settings="settingsModel" @change="onSettingsChanged" />
+        </Dialog>
+
         <Toast position="bottom-right" />
+
+        <Toast group="open-settings-view" position="bottom-right">
+            <template #message="slotProps">
+                <div class="toast-message">
+                    <h4>{{slotProps.message.summary}}</h4>
+                    <p>{{slotProps.message.detail}}</p>
+                    <div class="action-buttons">
+                        <Button class="" label="Go to app settings" @click="onAppSettingsClicked" />
+                    </div>
+                </div>
+            </template>
+        </Toast>
     </div>
 </template>
 
@@ -37,6 +54,7 @@ import ProgressSpinner from 'primevue/progressspinner';
 
 import HCMenuItem from '../components/HCMenuItem';
 import CoachEditor from '../components/CoachEditor';
+import SettingsView from '../components/SettingsView';
 import HCTeamPicker from '../components/HCTeamPicker';
 
 import importAll from '../../util/import-all';
@@ -52,6 +70,7 @@ const loadingScreens = importAll(require.context('../../img/city-loading-screens
 
 export default {
     name: 'EditorHome',
+
     components: {
         Card,
         Toast,
@@ -61,8 +80,10 @@ export default {
         ProgressSpinner,
         HCMenuItem,
         CoachEditor,
+        SettingsView,
         HCTeamPicker
     },
+
     created() {
         messageUIHelper.on(API.CAREER.GET_CAREER_INFO, (_, info) => {
             this.info = info;
@@ -103,16 +124,44 @@ export default {
             this.coachModel = res.results;
         });
 
+        messageUIHelper.on(API.GENERAL.GET_SETTINGS, (_, res) => {
+            if (!res._success) {
+                console.error(res);
+            }
+
+            this.settingsModel = Object.keys(res.results).map((configKey) => {
+                return {
+                    attributeKey: configKey,
+                    name: res.results[configKey].uiName,
+                    type: res.results[configKey].uiType,
+                    value: res.results[configKey].value,
+                }
+            });
+
+            if (!res.results.gameRootFolder.value) {
+                this.$toast.add({
+                    severity: 'info',
+                    group: 'open-settings-view',
+                    summary: 'Could not find game root folder',
+                    detail: 'If you\'d like to view portraits in this app, enter your game root folder in the app settings screen.'
+                });
+            }
+        });
+
         messageUI.send(API.CAREER.GET_CAREER_INFO);
         messageUI.send(API.COACH.GET_ALL_COACHES);
+        messageUI.send(API.GENERAL.GET_SETTINGS);
     },
+
     computed: {
         fileName() {
             return this.info ? this.info._filePath.split('\\').slice(-2, -1).pop().substring(10) : '';
         },
+
         currentTeamBackground() {
             return this.currentTeam ? loadingScreens[`${this.currentTeam.nickName.toLowerCase()}.webp`] : '';
         },
+
         currentTeamBackgroundColor() {
             return this.currentTeam ? `rgb(
                     ${this.currentTeam.colors.r}, 
@@ -120,25 +169,30 @@ export default {
                     ${this.currentTeam.colors.b}
                 )` : 'rgb(0,0,0)';
         },
+
         validTeams() {
             return this.info._teamData.filter((team) => {
                 return team.TGID <= 32;
             });
         }
     },
+
     data() {
         return {
             info: null,
             saving: false,
             coachModel: [],
             currentTeam: null,
+            settingsModel: [],
+            showSettings: false,
             showCoachEditor: false,
             hasUnsavedChanges: false,
             showTeamPickerModal: false
         }
     },
+
     methods: {
-        onCloseFileClicked: function () {
+        onCloseFileClicked() {
             if (this.hasUnsavedChanges) {
                 this.$confirm.require({
                     message: 'Are you sure you want to close with unsaved changes? The changes will be lost.',
@@ -156,29 +210,45 @@ export default {
                 this.navigateToHome();
             }
         },
-        navigateToHome: function () {
+
+        navigateToHome() {
             this.$router.push('/')
         },
-        onChangeTeamClicked: function () {
+
+        onChangeTeamClicked() {
             this.showTeamPickerModal = true;
         },
-        onSaveCareerClicked: function () {
+
+        onSaveCareerClicked() {
             messageUI.send(API.CAREER.SAVE_CAREER_INFO, this.info);
             this.saving = true;
         },
-        onChangeTeamDialogClosed: function () {
+
+        onChangeTeamDialogClosed() {
             this.showTeamPickerModal = false;
         },
-        onTeamPicked: function (team) {
+
+        onTeamPicked(team) {
             this.showTeamPickerModal = false;
             this.currentTeam = team;
             this.info._teamId = this.currentTeam.TGID;
             this.hasUnsavedChanges = true;
         },
-        onEditCoachesClicked: function () {
+
+        onEditCoachesClicked() {
             this.showCoachEditor = true;
+        },
+        
+        onAppSettingsClicked() {
+            this.$toast.removeGroup('open-settings-view');
+            this.showSettings = true;
+        },
+
+        onSettingsChanged(data) {
+            messageUI.send(API.GENERAL.SET_SETTING_VALUE, data);
         }
     },
+
     unmounted() {
         messageUIHelper.removeAll();
     }
