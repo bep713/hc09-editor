@@ -3,7 +3,6 @@ const path = require('path');
 const zlib = require('zlib');
 const dxt = require('dxt-js');
 const sharp = require('sharp');
-const { app } = require('deskgap');
 const { v4: uuid } = require('uuid');
 const log = require('../../util/logger');
 const prettyBytes = require('pretty-bytes');
@@ -385,7 +384,12 @@ function readASTFromStream(stream, recursiveRead, extractPreviews, readPathAfter
 
                 Promise.all(previewPromises)
                     .finally(() => {
-                        astService.eventEmitter.emit('previews-done');
+                        const readPathAfterRootIndex = parentKey.indexOf(readPathAfterRoot);
+                        const currentKey = readPathAfterRootIndex > 0 ? parentKey.split('_')[readPathAfterRootIndex-1] : parentKey.split('_')[0];
+
+                        astService.eventEmitter.emit('previews-done', {
+                            key: currentKey
+                        });
                     })
             }
         );

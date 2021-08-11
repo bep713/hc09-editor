@@ -20,11 +20,11 @@
             <ProgressSpinner />
         </Dialog>
 
-        <Dialog header="Edit coaches" :modal="true" :maximizable="true" v-model:visible="showCoachEditor">
+        <Dialog header="Edit coaches" :modal="true" :maximizable="true" v-model:visible="showCoachEditor" class="edit-modal">
             <CoachEditor :coachModel="coachModel" />
         </Dialog>
 
-        <Dialog header="Edit settings" :modal="true" :maximizable="true" v-model:visible="showSettings">
+        <Dialog header="Edit settings" :modal="true" :maximizable="true" v-model:visible="showSettings" class="edit-modal">
             <SettingsView :settings="settingsModel" @change="onSettingsChanged" />
         </Dialog>
 
@@ -256,39 +256,45 @@ export default {
 </script>
 
 <style lang="scss">
-.editor-home-container {
-    padding: 40px;
-    height: 100vh;
-    width: 100vw;
-    background-size: cover;
-    background-color: #333;
-    animation: background-fade-in 0.5s;
-}
+    .editor-home-container {
+        padding: 40px;
+        height: 100vh;
+        width: 100vw;
+        background-size: cover;
+        background-color: #333;
+        animation: background-fade-in 0.5s;
+    }
 
-div.p-dialog {
-    background-color: #fff;
-}
+    div.p-dialog {
+        background-color: #fff;
+    }
 
-div.p-dialog .p-dialog-header {
-    border-top-right-radius: 0;
-    border-top-left-radius: 0;
-    background-color: transparent;
-}
+    div.p-dialog .p-dialog-header {
+        border-top-right-radius: 0;
+        border-top-left-radius: 0;
+        background-color: transparent;
+    }
 
-.btn-close {
-    margin-top: 40px;
-}
+    .btn-close {
+        margin-top: 40px;
+    }
 
-.menu-wrapper {
-    position: absolute;
-    bottom: 50px;
-    left: 60px;
-    padding-left: 0;
-    margin: 0;
-}
+    .menu-wrapper {
+        position: absolute;
+        bottom: 50px;
+        left: 60px;
+        padding-left: 0;
+        margin: 0;
+    }
 
-@keyframes background-fade-in {
-    from {opacity: 0.2;}
-    to {opacity: 1;}
-}
+    @keyframes background-fade-in {
+        from {opacity: 0.2;}
+        to {opacity: 1;}
+    }
+
+    .edit-modal {
+        .p-dialog-content {
+            display: flex;
+        }
+    }
 </style>

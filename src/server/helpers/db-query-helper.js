@@ -28,7 +28,6 @@ dbQueryHelper.getAllCoaches = async () => {
     const file = dbQueryHelper.dbEditorService.activeDbHelper.file;
     const [_, teamData] = await Promise.all([file.COCH.readRecords(), dbQueryHelper.getAllTeams()]);
 
-    
     return file.COCH.records.map((cochRecord) => {
         const teamId = cochRecord.fields['TGID'].value;
 
