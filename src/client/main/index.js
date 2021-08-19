@@ -2,6 +2,7 @@ import App from './App';
 import router from './router';
 import { createApp } from 'vue';
 import PrimeVue from 'primevue/config';
+import Tooltip from 'primevue/tooltip';
 import ToastService from 'primevue/toastservice';
 import ConfirmationService from 'primevue/confirmationservice';
 
@@ -14,5 +15,7 @@ app.use(router);
 app.use(PrimeVue, {ripple: true});
 app.use(ToastService);
 app.use(ConfirmationService);
+
+app.directive('tooltip', Tooltip);
 
 app.mount('#app');

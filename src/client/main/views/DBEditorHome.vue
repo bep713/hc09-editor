@@ -36,6 +36,8 @@
 
         <ConfirmDialog></ConfirmDialog>
 
+        <ProgressDisplay v-if="longRunningActionIsRunning" />
+
         <Toast position="bottom-right" />
     </div>
 </template>
@@ -47,8 +49,9 @@ import Button from 'primevue/button';
 import SplitButton from 'primevue/splitbutton';
 import ConfirmDialog from 'primevue/confirmdialog';
 
+import ProgressDisplay from '../components/ProgressDisplay';
 import RecentFilesList from '../components/RecentFilesList';
-import DBEditorDataTable from '../components/DBEditorDataTable.vue';
+import DBEditorDataTable from '../components/DBEditorDataTable';
 
 import API from '../../../util/server-api-definition';
 import MessageUIHelper from '../../util/message-ui-helper';
@@ -67,6 +70,8 @@ export default {
 
         messageUIHelper.on(API.DB.OPEN_DB_FILE, (_, res) => {
             console.log(res);
+            this.longRunningActionIsRunning = false;
+
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -79,7 +84,7 @@ export default {
                 this.treeModel = null;
             }
             else {
-                this.treeModel = res.tables.map((table, index) => {
+                this.treeModel = res.tables.map((table, index) => { 
                     return {
                         'key': index,
                         'label': table
@@ -182,6 +187,7 @@ export default {
         });
 
         messageUIHelper.on(API.DB.SAVE_FILE, (_, res) => {
+            this.longRunningActionIsRunning = false;
             if (!res._success) {
                 this.$toast.add({
                     severity: 'error', 
@@ -211,6 +217,7 @@ export default {
         Button,
         SplitButton,
         ConfirmDialog,
+        ProgressDisplay,
         RecentFilesList,
         DBEditorDataTable
     },
@@ -253,6 +260,7 @@ export default {
             selectedTableName: null,
             dbModelIndexMapping: null,
             currentlyOpenedFilename: '',
+            longRunningActionIsRunning: false
         }
     },
     methods: {
@@ -308,6 +316,7 @@ export default {
 
         onDBFileSelected(path) {
             this.fileHasChanged = false;
+            this.longRunningActionIsRunning = true;
             this.currentlyOpenedFilename = path;
             messageUI.send(API.DB.OPEN_DB_FILE, {
                 path: path
@@ -479,14 +488,24 @@ export default {
         },
 
         onSaveFileClicked() {
+            this.longRunningActionIsRunning = true;
             messageUI.send(API.DB.SAVE_FILE);
         },
 
         onSaveAsClicked() {
+            let currentExtension = null;
+            const currentExtensionIndex = this.currentlyOpenedFilename.lastIndexOf('.');
+
+            if (currentExtensionIndex > -1) {
+                currentExtension = this.currentlyOpenedFilename.substring(currentExtensionIndex + 1);
+            }
+
+            const filters = currentExtension ? [{ name: currentExtension.toUpperCase(), extensions: [`${currentExtension}`]}, { name: 'Any', extensions: ['*']} ] : [];
+
             asyncNode.require('deskgap').then(function(deskgap) {
                 return deskgap.prop('dialog').invoke('showSaveDialogAsync', asyncNode.getCurrentWindow(), {
                     title: 'Select save location',
-                    filters: [{ name: 'DB', extensions: ['db'] }, { name: 'Any', extensions: ['*'] }]
+                    filters: filters 
                 }).resolve().value();
             }).then((result) => {
                 if (!result.cancelled && result.filePath) {
@@ -502,6 +521,7 @@ export default {
         },
 
         onSaveAs(path) {
+            this.longRunningActionIsRunning = true;
             messageUI.send(API.DB.SAVE_FILE, {
                 path: path
             });

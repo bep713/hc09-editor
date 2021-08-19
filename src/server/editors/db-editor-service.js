@@ -51,6 +51,11 @@ dbService.getTableData = async (tableName, options) => {
                 return 0;
             });
         }
+        else {
+            records.sort((a, b) => {
+                return a.index - b.index;
+            });
+        }
 
         if (options.filter !== undefined) {
 
@@ -134,7 +139,13 @@ dbService.getTableData = async (tableName, options) => {
             let obj = {};
 
             Object.keys(record.fields).forEach((field) => {
-                obj[field] = record.fields[field].value;
+                let value = record.fields[field].value;
+
+                if (!Number.isInteger(value) && typeof value !== 'string') {
+                    value = parseFloat(value.toFixed(3));
+                }
+
+                obj[field] = value;
             });
 
             return obj;

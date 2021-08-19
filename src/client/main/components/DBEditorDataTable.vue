@@ -141,7 +141,7 @@ export default {
      
                 switch(editingColumn.type) {
                     case 'text':
-                        if (editingCellValue.length <= this.schema[editingColumn.field]) {
+                        if (this.schema[editingColumn.field] === -1 || editingCellValue.length <= this.schema[editingColumn.field]) {
                             this.tableModel[event.index] = newValue;
 
                             isChanged = true;
@@ -156,11 +156,11 @@ export default {
                     case 'numeric':
                     default:
                         if (isNumeric(editingCellValue)) {
-                            editingCellValue = parseInt(editingCellValue);
+                            editingCellValue = parseFloat(editingCellValue);
 
-                            if (editingCellValue <= this.schema[editingColumn.field]) {
+                            if (this.schema[editingColumn.field] === -1 || editingCellValue <= this.schema[editingColumn.field]) {
                                 this.editingCellRows[event.index][event.field] = editingCellValue;
-                                this.tableModel[event.index] = newValue;
+                                this.tableModel[event.index] = {...this.editingCellRows[event.index]};
 
                                 isChanged = true;
                             }
@@ -198,7 +198,6 @@ export default {
 
         onCellEdit(newValue, props) {
             this.editingCellRows[props.index] = {...props.data};
-
             this.editingCellRows[props.index][props.column.props.field] = newValue;
         },
 

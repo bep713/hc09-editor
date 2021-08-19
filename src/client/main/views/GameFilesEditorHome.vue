@@ -2,7 +2,7 @@
     <div class="game-files-editor-wrapper">
         <div class="filter-buttons-wrapper">
             <Button label="Back to Home" class="p-button-text" icon="pi pi-arrow-left" @click="onBackToHomeClicked" />
-            <Button label="Select HC09 root folder" @click="onSelectRootFolderClicked" />
+            <Button label="Select PS3 root folder" @click="onSelectRootFolderClicked" />
             <Button label="Open single AST" class="p-button-outlined" @click="onOpenSingleASTClicked" />
             <Button label="Help" class="p-button-outlined" @click="onHelpClicked" />
         </div>

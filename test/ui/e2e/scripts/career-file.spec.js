@@ -11,7 +11,6 @@ const UnsavedChangesModal = require('../model/common/UnsavedChangesModal');
 
 let browser, page, deskgapProcess;
 
-
 describe('career file tests', function () {
     beforeEach(async () => {
         process.env.NODE_ENV = 'test';

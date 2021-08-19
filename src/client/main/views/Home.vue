@@ -6,7 +6,7 @@
                 <div class="button-container">
                     <Button :label="buttonText" :class="{ 'p-disabled': isLoading }" :icon="isLoading ? 'pi pi-spinner pi-spin' : ''" @click="onLoadClicked"/>
                     <Button label="Edit Game Files" class="p-button-outlined" icon="pi pi-file" @click="onEditGameFilesClicked" />
-                    <Button label="Open DB Editor" class="p-button-outlined" icon="pi pi-file" @click="onOpenDBEditorClicked" />
+                    <Button label="Open DB Editor" class="p-button-outlined" icon="pi pi-file" @click="onOpenDBEditorClicked" v-tooltip.bottom="'Now works with Madden rosters!'" />
 
                     <input type="text" class="hidden" id="career-file" @change="onInputFileChanged" />
                 </div>

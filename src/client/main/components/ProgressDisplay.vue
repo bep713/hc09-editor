@@ -1,7 +1,7 @@
 <template>
     <Dialog :modal="true" :closable="false" :visible="true">
         <div class="progress-wrapper">
-            <span class="progress-value">{{value}}%</span>
+            <span class="progress-value" v-if="value">{{value}}%</span>
             <ProgressSpinner />
         </div>
     </Dialog>

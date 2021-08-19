@@ -6,7 +6,6 @@ const { expect } = require('chai');
 const { pipeline } = require('stream');
 const { chromium } = require('playwright');
 const util = require('../util/UiTestUtil');
-// const csvParse = require('csv-parse/lib/sync');
 const runDeskgap = require('../../../../lib/deskgap/run');
 
 const HomePage = require('../model/HomePage');
@@ -56,9 +55,9 @@ describe('db editor tests', async function () {
                 catch (err) {
                     tries += 1;
     
-                    if (tries > 10) {
+                    if (tries > 20) {
                         clearInterval(interval);
-                        reject();
+                        reject(err);
                     }
                 }
             }, 100);
@@ -77,16 +76,20 @@ describe('db editor tests', async function () {
     const DB_FILE_PATH = path.join(__dirname, '../../../data/db/end-to-end-test.db');
     const SAVE_DB_AS_PATH = path.join(__dirname, '../../../data/db/end-to-end-test-save-as.db');
 
+    const PRISTINE_M22_ROSTER_FILE_PATH = path.join(__dirname, '../../../data/db/M22_Roster-PRISTINE');
+    const M20_ROSTER_FILE_PATH = path.join(__dirname, '../../../data/db/M20_Roster');
+    const M22_ROSTER_FILE_PATH = path.join(__dirname, '../../../data/db/M22_Roster');
+
     const EXPORT_PATH = path.join(__dirname, '../../../data/db/export-test.csv');
     const EXPORT_COMPARE_PATH = path.join(__dirname, '../../../data/db/pristine/export-compare.csv');
 
     const IMPORT_PATH = path.join(__dirname, '../../../data/db/pristine/import-test.csv');
 
-
     beforeEach(async () => {
         await cloneFile(PRISTINE_DB_FILE_PATH, DB_FILE_PATH);
         await cloneFile(PRISTINE_CAREER_FILE_PATH, CAREER_FILE_PATH);
-    })
+        await cloneFile(PRISTINE_M22_ROSTER_FILE_PATH, M22_ROSTER_FILE_PATH);
+    });
 
     it('can open and modify a DB file', async () => {
         const home = new HomePage(page);
@@ -516,6 +519,7 @@ describe('db editor tests', async function () {
         await dbEditorData.waitForTableToLoad();
 
         await dbEditorData.openTable('TEAM');
+        await dbEditorData.waitForTableToLoad();
         const newBrowns = await dbEditorData.readTableDataAtIndicies(5, 10);
         expect(newBrowns).to.equal('Test');
 
@@ -533,8 +537,125 @@ describe('db editor tests', async function () {
         await dbEditorHome.waitForPageLoad();
         await recentFiles.removeAllRecentFiles();
     });
-});
 
+    it('can open a Madden 22 roster file in the DB editor', async () => {
+        const home = new HomePage(page);
+        await home.waitForPageLoad();
+        await home.openDbEditor();
+
+        const dbEditorHome = new DbEditorHome(page);
+        await dbEditorHome.waitForPageLoad();
+        await dbEditorHome.openDbFile(M22_ROSTER_FILE_PATH);
+
+        const dbEditorData = new DbEditorData(page);
+        await dbEditorData.waitForPageLoad();
+        await dbEditorData.waitForTableToLoad();
+
+        // auto-opens the first table
+        const firstTableName = await dbEditorData.readTableName();
+        expect(firstTableName).to.equal('DCHT');
+
+        // can search the tables
+        await dbEditorData.searchTables('TEAM');
+
+        // can select and load a table
+        await dbEditorData.openTableAtIndex(1);
+        await dbEditorData.waitForTableToLoad();
+
+        // displays the expected table name
+        const teamTableName = await dbEditorData.readTableName();
+        expect(teamTableName).to.equal('TEAM');
+        
+        // displays all the table columns
+        const tableColumns = await dbEditorData.readTableColumns();
+        expect(tableColumns.length).to.equal(95);
+
+        // displays the table data
+        const browns = await dbEditorData.readTableDataAtIndicies(5, 22);
+        expect(browns).to.equal('Browns');
+
+        const oldInt = await dbEditorData.readTableDataAtIndicies(3, 25);
+        expect(oldInt).to.equal('10');
+
+        // displays a limited number of rows
+        const numberOfRowsDisplayed = await dbEditorData.readNumberOfRows();
+        expect(numberOfRowsDisplayed).to.equal(10);
+
+        await dbEditorData.editTableDataAtIndicies(5, 22, 'Test');
+        await dbEditorData.editTableDataAtIndicies(3, 25, '2');
+
+        // can search the tables
+        await dbEditorData.searchTables('PLAY');
+
+        // can select and load a table
+        await dbEditorData.openTableAtIndex(1);
+        await dbEditorData.waitForTableToLoad();
+
+        await dbEditorData.editTableDataAtIndicies(1, 1, '0.75');
+
+        await dbEditorData.saveFile();
+
+        const toast = new ToastMessage(page);
+        await toast.waitForToast();
+        await toast.closeToast();
+
+        await dbEditorData.closeFile();
+        await dbEditorHome.waitForPageLoad();
+
+        const recentFiles = new RecentFiles(page);
+        await recentFiles.openRecentFile(1);
+        await dbEditorData.waitForPageLoad();
+        await dbEditorData.waitForTableToLoad();
+
+        await dbEditorData.openTable('TEAM');
+        await dbEditorData.waitForTableToLoad();
+        const newBrowns = await dbEditorData.readTableDataAtIndicies(5, 22);
+        expect(newBrowns).to.equal('Test');
+
+        const newInt = await dbEditorData.readTableDataAtIndicies(3, 25);
+        expect(newInt).to.equal('2');
+
+        await dbEditorData.editTableDataAtIndicies(5, 22, 'Browns');
+        await dbEditorData.editTableDataAtIndicies(3, 25, '10');
+
+        await dbEditorData.openTable('PLAY');
+        await dbEditorData.waitForTableToLoad();
+
+        const newFloat = await dbEditorData.readTableDataAtIndicies(1, 1);
+        expect(newFloat).to.equal('0.75');
+        await dbEditorData.editTableDataAtIndicies(1, 1, '0.40');
+
+        await dbEditorData.toggleColumnSort(1);
+        const lowestBsaa = await dbEditorData.readTableDataAtIndicies(1, 1);
+        expect(lowestBsaa).to.equal('0.3');
+
+        await dbEditorData.toggleColumnSort(1);
+        const highestBsaa = await dbEditorData.readTableDataAtIndicies(1, 1);
+        expect(highestBsaa).to.equal('1');
+
+        await dbEditorData.toggleColumnSort(1);
+        const firstRecordBsaa = await dbEditorData.readTableDataAtIndicies(1, 1);
+        expect(firstRecordBsaa).to.equal('0.4');
+
+        await dbEditorData.filterColumn(45, 'Contains', 'Mahomes');
+        await dbEditorData.waitForTableToLoad();
+        const mahomesPeps = await dbEditorData.readTableDataAtIndicies(1, 45);
+        expect(mahomesPeps).to.equal('MahomesIIPatrick_12635');
+
+        await dbEditorData.saveFile();
+
+        await toast.waitForToast();
+        await toast.closeToast();
+
+        const careerFile = fs.readFileSync(CAREER_FILE_PATH);
+        const pristineCareer = fs.readFileSync(PRISTINE_CAREER_FILE_PATH);
+        testBufferHashes(careerFile, pristineCareer);
+
+        await dbEditorData.closeFile();
+        await dbEditorHome.waitForPageLoad();
+        await recentFiles.removeAllRecentFiles();
+    });
+});
 
 function testBufferHashes(bufferToTest, bufferToCompare) {
     let testHash = crypto.createHash('sha1');

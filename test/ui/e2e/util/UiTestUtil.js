@@ -2,8 +2,8 @@ module.exports = {
     'enterFilePath': async (page, selector, path) => {
         await page.evaluate(`const textbox = document.querySelector('${selector}'); textbox.classList.remove('hidden');`);
         await page.type(selector, path);
-        await page.keyboard.press('Enter');
         await page.evaluate(`const textbox = document.querySelector('${selector}'); textbox.classList.add('hidden');`);
+        await page.keyboard.press('Enter');
     },
 
     'sendSaveKeyboardShortcut': async (page) => {
