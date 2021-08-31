@@ -14,7 +14,7 @@
   "dependencies": {
     "conf": "^10.0.1",
     "dxt-js": "0.0.3",
-    "madden-file-tools": "^2.5.2",
+    "madden-file-tools": "^2.5.3",
     "moment": "^2.29.1",
     "pretty-bytes": "^5.6.0",
     "primeicons": "^4.1.0",
