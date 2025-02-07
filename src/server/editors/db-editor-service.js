@@ -162,7 +162,12 @@ dbService.exportTable = async (tableName, options) => {
     });
 
     const data = table.records.map((record) => {
-        return Object.keys(record.fields).map((fieldKey) => { 
+        return headers.map((fieldKey) => { 
+            if(!record.fields[fieldKey])
+            {
+                return '';
+            }
+            
             const field = record.fields[fieldKey];
             return field.value;
         });
@@ -199,6 +204,10 @@ dbService.importTable = async (tableName, options) => {
         let record = table.records[index];
 
         Object.keys(row).forEach((fieldKey) => {
+            if(!record.fields[fieldKey]) {
+                return;
+            }
+           
             record.fields[fieldKey].value = row[fieldKey];
         });
     });
